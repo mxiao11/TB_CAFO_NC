@@ -47,3 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+CAFOs in NC.Rproj
+df.RDS
+*.csv
+*.RDS
+m4.RD

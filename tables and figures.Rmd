@@ -1,0 +1,72 @@
+---
+title: "Tables and Figures"
+author: "Melody Xiao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 0. Setup
+```{r load packages}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(spdep)
+library(RColorBrewer)
+library(stargazer)
+library(flextable)
+```
+
+### 1. CAFO locations in NC
+```{r points in NC}
+NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp")
+swine_df <- readRDS("swine_df.RDS")
+df <- readRDS("df.RDS")
+
+## convert points to sf
+cafo_locs <- swine_df %>%
+  select(Location.Lat.Num, Location.Long.Num) %>%
+  rename(lat=Location.Lat.Num, long=Location.Long.Num)
+cafo_locs <- drop_na(cafo_locs)
+cafo_locs <- st_as_sf(cafo_locs, coords=c("long", "lat"), crs=4326)
+cafo_locs <- st_transform(cafo_locs, st_crs(NC_sf))
+
+ggplot() +
+  geom_sf(data=NC_sf, fill="grey95") +
+  geom_sf(data=cafo_locs, color="red", size=1, pch=21) +
+  theme_minimal()
+```
+
+### 2. Univariate choropleths
+```{r univariate choropleths}
+## CAFOs
+class_cafo <- cut(df$cafo_dens, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_cafo)) +
+  scale_fill_brewer(palette="OrRd") +
+  theme_minimal()
+
+## TB
+class_TB <- cut(df$TB, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_TB)) +
+  scale_fill_brewer(palette="OrRd") +
+  theme_minimal()
+
+## other resp
+class_resp <- cut(df$resp, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_resp)) +
+  scale_fill_brewer(palette="OrRd") +
+  theme_minimal()
+```
+
+### 3. Spatial regression model results
+```{r spatial regression table}
+o1 <- readRDS("o1.RDS"); o2 <- readRDS("o2.RDS"); m3 <- readRDS("m3.RDS"); m4 <- readRDS("m4.RDS"); m6 <- readRDS("m6.RDS"); m7 <- readRDS("m7.RDS")
+
+```
+

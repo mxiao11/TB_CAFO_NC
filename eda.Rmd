@@ -1,0 +1,149 @@
+---
+title: "EDA and ESDA"
+author: "Melody Xiao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 0. Setup
+```{r load packages}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(spdep)
+library(tmap)
+library(viridis)
+library(RColorBrewer)
+library(corrr)
+library(car)
+```
+
+```{r load data}
+## NC state and county shapefile - 2025, NC OneMap
+NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp")
+
+df <- readRDS("df.RDS")
+swine_df <- readRDS("swine_df.RDS")
+```
+
+### 1. EDA
+
+Going to start by looking at all the covariates.
+```{r EDA}
+summary(df$county_pop); hist(df$county_pop)
+summary(df$TB); hist(df$TB)
+summary(df$fw); hist(df$fw)
+summary(df$ha); hist(df$ha)
+summary(df$resp); hist(df$resp)
+summary(df$vec); hist(df$vec)
+summary(df$beds_incid); hist(df$beds_incid)
+summary(df$Percent.in.Poverty); hist(df$Percent.in.Poverty)
+summary(df$cafo_dens); hist(df$cafo_dens)
+
+plot(df$Percent.in.Poverty, df$cafo_dens)
+```
+
+Do we see correlation among our variables?
+```{r correl}
+cor.table <- df %>%
+  select(-County) %>%
+  correlate()
+cor.table
+```
+
+
+### 2. Map
+
+For final figures, we would want to do a better job of selecting cutpoints (based more on quantiles) but for now we're just doing five cuts.
+```{r make maps}
+## pop density
+class_pd <- cut(df$pop_dens, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_pd)) +
+  scale_fill_brewer(palette="OrRd")
+
+## CAFO density
+class_cafo <- cut(df$cafo_dens, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_cafo)) +
+  scale_fill_brewer(palette="OrRd")
+
+## poverty
+class_pov <- cut(df$Percent.in.Poverty, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_pov)) +
+  scale_fill_brewer(palette="OrRd")
+
+## TB
+class_TB <- cut(df$TB, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_TB)) +
+  scale_fill_brewer(palette="OrRd")
+
+## fw
+class_fw <- cut(df$fw, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_fw)) +
+  scale_fill_brewer(palette="OrRd")
+
+## ha
+class_ha <- cut(df$ha, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_ha)) +
+  scale_fill_brewer(palette="OrRd")
+
+## resp
+class_resp <- cut(df$resp, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_resp)) +
+  scale_fill_brewer(palette="OrRd")
+
+## vec
+class_vec <- cut(df$vec, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_vec)) +
+  scale_fill_brewer(palette="OrRd")
+
+```
+
+Based on this EDA, it might not be interesting to look at vector-borne diseases or HAIs. 
+
+### 3. Simple linear regression
+
+```{r linreg}
+m1 <- lm(TB ~ cafo_dens, data=df)
+summary(m1)
+
+m2 <- lm(fw ~ cafo_dens, data=df)
+summary(m2)
+
+m3 <- lm(resp ~ cafo_dens, data=df)
+summary(m3)
+```
+
+```{r multi linreg}
+m4 <- lm(TB ~ cafo_dens + pop_dens + beds_incid + Percent.in.Poverty, data=df)
+summary(m4)
+vif(m4)
+
+hist(resid(m4))
+qqPlot(m4) # residuals not normal
+plot(resid(m4))
+
+## plot the residuals
+df_wresid <- df %>%
+  ungroup() %>%
+  mutate(olsresid=resid(m4))
+
+class_resids <- cut(df_wresid$olsresid, 5)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_resids)) +
+  scale_fill_brewer(palette="OrRd")
+```
+
+
+It looks like TB and CAFO density has a significant relationship. Time to test that more thoroughly.

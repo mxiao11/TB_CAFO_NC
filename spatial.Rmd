@@ -1,0 +1,229 @@
+---
+title: "Spatial Analyses"
+author: "Melody Xiao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 0. Setup
+
+```{r load packages}
+library(tidyverse)
+library(ggplot2)
+library(spdep)
+library(bispdep)
+library(spatialreg)
+```
+
+```{r load data}
+NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp")
+
+df <- readRDS("df.RDS")
+swine_df <- readRDS("swine_df.RDS")
+```
+
+```{r combine data}
+NC_all <- left_join(NC_sf, df, by="County")
+```
+
+We're only going to look at TB and other respiratory illnesses to compare. 
+
+The steps we'll take for spatial analyses are:
+
+1.  Defining neighbors and creating spatial weights matrix
+
+2.  Univariate Moran's I
+
+3.  Bivariate Moran's I
+
+4.  Spatial regression
+
+5.  Visualizing results
+
+6.  Mediation analyses
+
+### 1. TB
+
+Defining neighbors and making spatial weights matrix
+```{r define neighbors}
+nb <- poly2nb(NC_all, queen=TRUE)
+weights <- nb2listw(nb, style="W", zero.policy=TRUE)
+```
+
+Univariate Moran's I
+```{r uni Moran's}
+### FOR CAFOs
+NC_all$lag <- lag.listw(weights, NC_all$cafo_dens)
+m1 <- lm(lag ~ cafo_dens, NC_all)
+plot(lag ~ cafo_dens, NC_all)
+abline(m1, col="blue")
+abline(v=mean(NC_all$cafo_dens), lty=3, col="grey70")
+abline(h=mean(NC_all$cafo_dens), lty=3, col="grey70")
+
+## get the coefficient
+um_cafo <- moran(NC_all$cafo_dens, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo
+
+## statistical significance
+MC <- moran.mc(NC_all$cafo_dens, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+### FOR TB
+## Moran's I scatterplot
+NC_all$lag <- lag.listw(weights, NC_all$TB)
+m2 <- lm(lag ~ TB, NC_all)
+plot(lag ~ TB, NC_all)
+abline(m2, col="blue")
+abline(v=mean(NC_all$TB), lty=3, col="grey70")
+abline(h=mean(NC_all$TB), lty=3, col="grey70")
+
+## get the coefficient
+um_TB <- moran(NC_all$TB, listw=weights, n=length(nb), S0=Szero(weights))
+um_TB
+
+## statistical significance
+MC <- moran.mc(NC_all$TB, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+```
+
+Bivariate Moran's I
+```{r bi Moran's}
+## get the coefficient
+bm_TB <- moran.bi(NC_all$TB, NC_all$cafo_dens, weights)
+bm_TB
+
+## statistical significance
+MC <- moranbi.mc(NC_all$TB, NC_all$cafo_dens, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+```
+
+Since we see spatial autocorrelation, we do a spatial regression
+```{r spatial regression}
+## OLS
+o1 <- lm(
+  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df
+)
+summary(o1)
+saveRDS(o1, "o1.RDS")
+
+## SAR
+m3 <- lagsarlm(
+  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df,
+  listw = weights
+)
+summary(m3)
+saveRDS(m3, "m3.RDS")
+
+# get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
+m3_impacts <- impacts(m3, listw=weights, R=999)
+m3_impacts
+summary(m3_impacts)
+
+## SER
+m4 <- errorsarlm(
+  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df, 
+  listw = weights
+)
+summary(m4) # CAN be directly compared to OLS coefficients
+saveRDS(m4, "m4.RDS")
+
+## compare
+AIC(m3); AIC(m4)
+```
+
+CAFO density is highly significant even after accounting for spatial autocorrelation, population density, % poverty, and hospital beds per person. Model 1 (SAR) is the better model.
+
+Now we compare to what that looks like with other respiratory illnesses.
+
+### 2. Other respiratory illnesses
+
+Defining neighbors and making spatial weights matrix
+```{r define neighbors}
+nb <- poly2nb(NC_all, queen=TRUE)
+weights <- nb2listw(nb, style="W", zero.policy=TRUE)
+```
+
+Univariate Moran's I
+```{r uni Moran's}
+## Moran's I scatterplot
+NC_all$lag <- lag.listw(weights, NC_all$resp)
+m5 <- lm(lag ~ resp, NC_all)
+plot(lag ~ resp, NC_all)
+abline(m5, col="blue")
+abline(v=mean(NC_all$resp), lty=3, col="grey70")
+abline(h=mean(NC_all$resp), lty=3, col="grey70")
+
+## get the coefficient
+um_resp <- moran(NC_all$resp, listw=weights, n=length(nb), S0=Szero(weights))
+um_resp
+
+## statistical significance
+MC <- moran.mc(NC_all$resp, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+```
+
+Bivariate Moran's I
+```{r bi Moran's}
+## get the coefficient
+bm_resp <- moran.bi(NC_all$resp, NC_all$cafo_dens, weights)
+bm_resp
+
+## statistical significance
+MC <- moranbi.mc(NC_all$resp, NC_all$cafo_dens, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+```
+
+Since we see spatial autocorrelation, we do a spatial regression
+```{r spatial regression}
+## OLS
+o2 <- lm(
+  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df
+)
+summary(o2)
+saveRDS(o2, "o2.RDS")
+
+## SAR
+m6 <- lagsarlm(
+  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df,
+  listw = weights
+)
+summary(m6)
+saveRDS(m6, "m6.RDS")
+
+# get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
+m6_impacts <- impacts(m3, listw=weights, R=999)
+m6_impacts
+summary(m6_impacts)
+
+## SER
+m7 <- errorsarlm(
+  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = df, 
+  listw = weights
+)
+summary(m7) # CAN be directly compared to OLS coefficients
+saveRDS(m7, "m7.RDS")
+
+## compare
+AIC(m6); AIC(m7)
+```
+

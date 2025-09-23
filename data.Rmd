@@ -1,0 +1,256 @@
+---
+title: "Data Prep & Cleaning"
+author: "Melody Xiao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 0. Setup
+
+```{r load packages}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+```
+
+```{r making not in function}
+'%!in%' <- Negate('%in%')
+```
+
+### 1. Loading data
+
+```{r load data}
+## List of permitted CAFOs in North Carolina - 2024, NC Department of Enviro Quality
+cafo_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/CAFOs NC.csv")
+
+## ID incidence (per 100,000) by NC county - 2023, NCDHHS
+countyid_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/County Chart_data.csv")
+
+## NC county area and number of hospital beds - 2023, Office of State Budget and Management and 2025 NC DHHS
+cb_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC area and beds.csv")
+
+## percent in poverty by county - 2022, Office of State Budget and Management
+poverty_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/perc_in_poverty.csv")
+
+## percent foreign-born - 2023, US Census, American Community Survey
+foreign_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/ACS 2023 5 year.csv")
+```
+
+### 2. Swine CAFOs
+
+We have multiple entries for each CAFO type because of the different kinds of permits. But we only want swine, and we don't want multiple entries per company at one location. Let's organize that.
+
+```{r CAFO reformatting}
+table(cafo_df$Regulated.Operation)
+swine_df <- cafo_df[cafo_df$Regulated.Operation=="Swine",]
+swine_df <- swine_df %>%
+  distinct(Permit.Number, Location.Lat.Num, Location.Long.Num, .keep_all = TRUE)
+saveRDS(swine_df, "swine_df.RDS")
+```
+
+### 3. Diseases
+
+We're only going to look at:
+
+-   TB
+-   other respiratory (grouped)
+-   vector-borne diseases (grouped)
+-   food-/water-borne diseases (grouped)
+-   healthcare-associated and AMR (grouped)
+
+```{r ID reformatting}
+## selecting 2023
+id2023_df <- countyid_df[countyid_df$Year.of.Year==2023 & countyid_df$Measure.Names=="County Incidence",]
+table(id2023_df$Disease)
+
+## find the unique diseases
+unique_IDs <- unique(id2023_df$Disease)
+
+## get rid of diseases that don't appear in any county
+dis_num <- vector(length=100)
+empties <- vector()
+for(i in 1:length(unique_IDs)){
+  loop_df <- id2023_df[id2023_df$Disease==unique_IDs[i],]
+  dis_num <- sum(loop_df$Measure.Values, na.rm=TRUE)
+  if(dis_num==0){
+    empties <- c(empties, unique_IDs[i])
+  }
+  print(i)
+}
+
+id2023_df <- id2023_df[id2023_df$Disease %!in% empties,]
+  
+# update the unique disease list
+unique_IDs <- unique(id2023_df$Disease)
+
+## categories
+disease_type <- rep(NA, length(unique_IDs))
+ID_types <- data.frame(unique_IDs, disease_type)
+colnames(ID_types) <- c("Disease", "disease_type")
+
+# TB
+ID_types$disease_type[ID_types$Disease=="TB"] <- "TB"
+
+# other respiratory
+ID_types$disease_type <- ifelse(
+  ID_types$Disease=="Pertussis" | ID_types$Disease=="Mumps" | 
+    ID_types$Disease=="Meningococcal invasive disease" | 
+    ID_types$Disease=="Meningitis, pneumococcal" | 
+    ID_types$Disease=="Legionellosis" |
+    ID_types$Disease=="Haemophilus influenzae, invasive disease"|
+    ID_types$Disease=="Influenza, adult death" | 
+    ID_types$Disease=="Influenza, pediatric death", 
+  "resp", ID_types$disease_type
+)
+
+# vector-borne
+ID_types$disease_type <- ifelse(
+  ID_types$Disease=="Anaplasmosis" | ID_types$Disease=="Chikungunya" |
+    ID_types$Disease=="Dengue" | ID_types$Disease=="Ehrlichiosis, chaffeensis" |
+    ID_types$Disease=="Ehrlichiosis, unspecified" |
+    ID_types$Disease=="Encephalitis, arboviral, LAC" |
+    ID_types$Disease=="Encephalitis, arboviral, WNV" |
+    ID_types$Disease=="Lyme Disease" | ID_types$Disease=="Malaria" |
+    ID_types$Disease=="Spotted Fever Rickettsiosis" |
+    ID_types$Disease=="Tularemia", 
+  "vec", ID_types$disease_type
+)
+
+# food-/water-borne
+ID_types$disease_type <- ifelse(
+  ID_types$Disease=="Botulism - foodborne/wound" | 
+    ID_types$Disease=="Campylobacteriosis" | 
+    ID_types$Disease=="Cryptosporidiosis" | ID_types$Disease=="Cyclosporiasis" |
+    ID_types$Disease=="E. coli - shiga toxin producing" |
+    ID_types$Disease=="Foodborne dz- C. perfringens" |
+    ID_types$Disease=="Foodborne dz- other/unknown" |
+    ID_types$Disease=="Foodborne dz- Staphylococcal" |
+    ID_types$Disease=="Listeriosis" | ID_types$Disease=="Salmonellosis" |
+    ID_types$Disease=="Shigellosis" | 
+    ID_types$Disease=="Hemolytic Uremic Syndrome", 
+  "fw", ID_types$disease_type
+)
+
+# HAI and AMR
+ID_types$disease_type <- ifelse(
+  ID_types$Disease=="Candida auris" |
+    ID_types$Disease=="Carbapenem-resistant Enterobacterales" |
+    ID_types$Disease=="Staph aureus, reduced suscept. to vancomycin" |
+    ID_types$Disease=="Streptococcal invasive infection, Group A", 
+  "ha", ID_types$disease_type
+)
+
+## drop everything that isn't categorized
+ID_types <- ID_types[!is.na(ID_types$disease_type),]
+
+## join back in, and drop everything that isn't categorized
+id2023_df <- left_join(id2023_df, ID_types, by="Disease")
+id2023_df <- id2023_df[!is.na(id2023_df$disease_type),]
+
+## get raw number of cases for each disease
+id2023_df$n_case <- NA
+id2023_df$n_case <- id2023_df$Measure.Values*id2023_df$County.Pop.Adjusted/100000
+
+## now get total numbers per disease category per county
+id2023_df$tot_n <- NA
+tot_df <- id2023_df %>%
+  group_by(County, disease_type) %>%
+  summarise(dis_cat_tot=sum(n_case))
+
+## now, IRs
+county_pop <- vector()
+counties <- unique(id2023_df$County)
+for(i in 1:length(counties)){
+  county_pop[i] <- max(id2023_df$County.Pop.Adjusted[id2023_df$County==counties[i]])
+}
+county_pop <- data.frame(counties, county_pop)
+colnames(county_pop) <- c("County", "county_pop")
+
+tot_df <- left_join(tot_df, county_pop, by="County")
+tot_df$c_IR <- NA
+tot_df$c_IR <- tot_df$dis_cat_tot/tot_df$county_pop*100000
+```
+
+Using *tot_df* we'll make the final data table that we'll use for analyses.
+```{r making df}
+df <- tot_df[,-3]
+df <- pivot_wider(df, names_from="disease_type", values_from="c_IR")
+df$resp <- round(df$resp, digits=1)
+```
+
+### 4. Healthcare access and county size
+
+Unfortunately, we needed to hardcode this. We added it into the csv of county area.
+```{r hospital beds}
+df <- left_join(df, cb_df, by="County")
+colnames(df)[8] <- "land_area"
+colnames(df)[9] <- "hosp_beds"
+
+df$beds_pc <- df$hosp_beds/df$county_pop
+
+df <- df[,-9] # drop hospital bed number
+
+```
+
+### 5. Poverty
+
+We will add the percent of county living in poverty.
+```{r poverty}
+df <- left_join(df, poverty_df, by="County")
+
+## hard-code New Hanover County
+df$Percent.in.Poverty[df$County=="New Hanover"] <- 12.1
+```
+
+
+### 6. Combining CAFO and ID dataframes
+
+Finally, we want density of CAFOs per county (CAFOs per square mile). 
+```{r CAFO density}
+cbc_table <- as.data.frame(table(swine_df$County.Name))
+colnames(cbc_table) <- c("County", "cafo_num")
+
+df <- left_join(df, cbc_table)
+df$cafo_num <- ifelse(is.na(df$cafo_num), 0, df$cafo_num)
+
+df$cafo_dens <- df$cafo_num/df$land_area
+```
+
+### 7. Population density
+```{r popdens}
+df$pop_dens <- df$county_pop/df$land_area
+```
+
+### 8. Foreign-born
+```{r foreign-born}
+foreign_df <- foreign_df[116,]
+keep_foreign <- vector()
+for(i in 1:100){
+  keep_foreign[i] <- 6+((i-1)*4)
+}
+foreign_df <- foreign_df[,keep_foreign]
+foreign_df <- pivot_longer(foreign_df, cols=1:100, names_to="County")
+colnames(foreign_df) <- c("County", "foreign")
+foreign_df$County <- str_remove(foreign_df$County, ".County..North.Carolina..Estimate")
+foreign_df$foreign <- str_remove(foreign_df$foreign, ",")
+foreign_df$foreign <- as.numeric(foreign_df$foreign)
+
+df <- left_join(df, foreign_df, by="County")
+
+df <- df %>%
+  mutate(f_perc=foreign/county_pop*100)
+
+## hard code New Hanover County
+df$f_perc[65] <- 6.07
+```
+
+### 9. Save
+```{r saving dfs}
+saveRDS(swine_df, "swine_df.RDS")
+saveRDS(df, "df.RDS")
+```
+
