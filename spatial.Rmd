@@ -30,7 +30,7 @@ swine_df <- readRDS("swine_df.RDS")
 NC_all <- left_join(NC_sf, df, by="County")
 ```
 
-We're only going to look at TB and other respiratory illnesses to compare. 
+We're only going to look at TB and other respiratory illnesses to compare.
 
 The steps we'll take for spatial analyses are:
 
@@ -49,12 +49,14 @@ The steps we'll take for spatial analyses are:
 ### 1. TB
 
 Defining neighbors and making spatial weights matrix
+
 ```{r define neighbors}
 nb <- poly2nb(NC_all, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
 Univariate Moran's I
+
 ```{r uni Moran's}
 ### FOR CAFOs
 NC_all$lag <- lag.listw(weights, NC_all$cafo_dens)
@@ -95,6 +97,7 @@ MC$p.value
 ```
 
 Bivariate Moran's I
+
 ```{r bi Moran's}
 ## get the coefficient
 bm_TB <- moran.bi(NC_all$TB, NC_all$cafo_dens, weights)
@@ -108,6 +111,7 @@ MC$p.value
 ```
 
 Since we see spatial autocorrelation, we do a spatial regression
+
 ```{r spatial regression}
 ## OLS
 o1 <- lm(
@@ -129,7 +133,7 @@ saveRDS(m3, "m3.RDS")
 # get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
 m3_impacts <- impacts(m3, listw=weights, R=999)
 m3_impacts
-summary(m3_impacts)
+summary(m3_impacts, zstats=TRUE)
 
 ## SER
 m4 <- errorsarlm(
@@ -144,6 +148,11 @@ saveRDS(m4, "m4.RDS")
 AIC(m3); AIC(m4)
 ```
 
+Some more information on how to interpret the results:
+
+-   For the SAR model, the effect of a change in covariates spatially propagates through neighbors, neighbors of neighbors, etc. So, we can't interpret the raw $\beta$ values. So, we use the `impacts` function to decompose the direct and indirect impacts (marginal effects). **Direct impacts** are the average effect of changing a covariate within its own unit; **indirect impacts** are for the impact of the change on other units. The **total impacts** are direct + indirect. Example: if the direct impact of income on house prices is 0.5 and the indirect is 0.2, then a 1-unit increase in income in a neighborhood increases its own house price by 0.5 and increases that of nearby homes by 0.2. The total effect is 0.7.
+-   For the SER model, the $\beta$ coefficients are interpreted just like in OLS.
+
 CAFO density is highly significant even after accounting for spatial autocorrelation, population density, % poverty, and hospital beds per person. Model 1 (SAR) is the better model.
 
 Now we compare to what that looks like with other respiratory illnesses.
@@ -151,12 +160,14 @@ Now we compare to what that looks like with other respiratory illnesses.
 ### 2. Other respiratory illnesses
 
 Defining neighbors and making spatial weights matrix
+
 ```{r define neighbors}
 nb <- poly2nb(NC_all, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
 Univariate Moran's I
+
 ```{r uni Moran's}
 ## Moran's I scatterplot
 NC_all$lag <- lag.listw(weights, NC_all$resp)
@@ -178,6 +189,7 @@ MC$p.value
 ```
 
 Bivariate Moran's I
+
 ```{r bi Moran's}
 ## get the coefficient
 bm_resp <- moran.bi(NC_all$resp, NC_all$cafo_dens, weights)
@@ -191,6 +203,7 @@ MC$p.value
 ```
 
 Since we see spatial autocorrelation, we do a spatial regression
+
 ```{r spatial regression}
 ## OLS
 o2 <- lm(
@@ -226,4 +239,3 @@ saveRDS(m7, "m7.RDS")
 ## compare
 AIC(m6); AIC(m7)
 ```
-
