@@ -240,6 +240,8 @@ foreign_df$foreign <- str_remove(foreign_df$foreign, ",")
 foreign_df$foreign <- as.numeric(foreign_df$foreign)
 
 df <- left_join(df, foreign_df, by="County")
+df$foreign <- str_remove(df$foreign, ",")
+df$foreign <- as.numeric(df$foreign)
 
 df <- df %>%
   mutate(f_perc=foreign/county_pop*100)

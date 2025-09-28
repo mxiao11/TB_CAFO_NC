@@ -116,7 +116,7 @@ Since we see spatial autocorrelation, we do a spatial regression
 ## OLS
 o1 <- lm(
   TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df
+  data = NC_all
 )
 summary(o1)
 saveRDS(o1, "o1.RDS")
@@ -124,7 +124,7 @@ saveRDS(o1, "o1.RDS")
 ## SAR
 m3 <- lagsarlm(
   TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df,
+  data = NC_all,
   listw = weights
 )
 summary(m3)
@@ -216,16 +216,16 @@ saveRDS(o2, "o2.RDS")
 ## SAR
 m6 <- lagsarlm(
   resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df,
+  data = NC_all,
   listw = weights
 )
 summary(m6)
 saveRDS(m6, "m6.RDS")
 
 # get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
-m6_impacts <- impacts(m3, listw=weights, R=999)
+m6_impacts <- impacts(m6, listw=weights, R=999)
 m6_impacts
-summary(m6_impacts)
+summary(m6_impacts, zstats=TRUE)
 
 ## SER
 m7 <- errorsarlm(

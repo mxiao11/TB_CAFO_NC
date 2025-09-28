@@ -47,21 +47,48 @@ class_cafo <- cut(df$cafo_dens, 5)
 ggplot(NC_sf) +
   geom_sf(aes(fill=class_cafo)) +
   scale_fill_brewer(palette="OrRd") +
-  theme_minimal()
+  labs(title = "CAFOs") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  )
 
 ## TB
 class_TB <- cut(df$TB, 5)
 ggplot(NC_sf) +
   geom_sf(aes(fill=class_TB)) +
   scale_fill_brewer(palette="OrRd") +
-  theme_minimal()
+  labs(title = "TB") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  )
 
 ## other resp
 class_resp <- cut(df$resp, 5)
 ggplot(NC_sf) +
   geom_sf(aes(fill=class_resp)) +
   scale_fill_brewer(palette="OrRd") +
-  theme_minimal()
+  labs(title = "Other respiratory diseases") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  )
 ```
 
 ### 3. Spatial regression model results
