@@ -34,7 +34,7 @@ countyid_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in
 cb_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC area and beds.csv")
 
 ## percent in poverty by county - 2022, Office of State Budget and Management
-poverty_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/perc_in_poverty.csv")
+poverty_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/employment-and-income-linc.csv")
 
 ## percent foreign-born - 2023, US Census, American Community Survey
 foreign_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/ACS 2023 5 year.csv")
@@ -99,7 +99,6 @@ ID_types$disease_type[ID_types$Disease=="TB"] <- "TB"
 ID_types$disease_type <- ifelse(
   ID_types$Disease=="Pertussis" | ID_types$Disease=="Mumps" | 
     ID_types$Disease=="Meningococcal invasive disease" | 
-    ID_types$Disease=="Meningitis, pneumococcal" | 
     ID_types$Disease=="Legionellosis" |
     ID_types$Disease=="Haemophilus influenzae, invasive disease"|
     ID_types$Disease=="Influenza, adult death" | 
@@ -200,10 +199,12 @@ df <- df[,-9] # drop hospital bed number
 
 We will add the percent of county living in poverty.
 ```{r poverty}
+colnames(poverty_df)[1] <- "County"
+poverty_df$County <- str_remove(poverty_df$County, " County")
 df <- left_join(df, poverty_df, by="County")
-
-## hard-code New Hanover County
-df$Percent.in.Poverty[df$County=="New Hanover"] <- 12.1
+df <- df %>%
+  select(-Area.Type, -Year, -Variable) %>%
+  rename(Percent.in.Poverty = Value)
 ```
 
 

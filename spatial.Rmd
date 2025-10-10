@@ -20,7 +20,7 @@ library(spatialreg)
 ```
 
 ```{r load data}
-NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp")
+NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp") 
 
 df <- readRDS("df.RDS")
 swine_df <- readRDS("swine_df.RDS")
