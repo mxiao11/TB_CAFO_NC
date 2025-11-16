@@ -15,6 +15,12 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(sf)
+library(tidycensus)
+```
+
+```{r tidycensus setup}
+## DO NOT RUN if you already have a Census API key loaded
+census_api_key("7e09c574348b580868c23ac0304cdea01e65413c", install = TRUE)
 ```
 
 ```{r making not in function}
@@ -23,24 +29,415 @@ library(sf)
 
 ### 1. Loading data
 
-```{r load data}
-## List of permitted CAFOs in North Carolina - 2024, NC Department of Enviro Quality
-cafo_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/CAFOs NC.csv")
+Infectious disease incidence data were downloaded from NCDHHS (https://epi.dph.ncdhhs.gov/cd/figures.html). Data were downloaded one year at a time due to R import issues with multiple-year spreadsheets. 
 
-## ID incidence (per 100,000) by NC county - 2023, NCDHHS
-countyid_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/County Chart_data.csv")
+These data also have the adjusted population sizes of each county.
 
-## NC county area and number of hospital beds - 2023, Office of State Budget and Management and 2025 NC DHHS
-cb_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC area and beds.csv")
+```{r NC infectious diseases}
+id_2017 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2017.csv")
 
-## percent in poverty by county - 2022, Office of State Budget and Management
-poverty_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/employment-and-income-linc.csv")
+id_2018 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2018.csv")
 
-## percent foreign-born - 2023, US Census, American Community Survey
-foreign_df <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/ACS 2023 5 year.csv")
+id_2019 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2019.csv")
+
+id_2020 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2020.csv")
+
+id_2021 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2021.csv")
+
+id_2022 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2022.csv")
+
+id_2023 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2023.csv")
 ```
 
-### 2. Swine CAFOs
+2017 and 2020 CAFO data come from personal correspondence with Dr. Christine Lawson; these spreadsheets were originally publicly available on the NC DEQ website but were replaced by the 2024 spreadsheet (https://www.deq.nc.gov/about/divisions/water-resources/permitting/animal-feeding-operations/animal-facility-map).
+
+```{r CAFOs in NC}
+cafo_2017 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/CAFOs/CAFO 2017.csv")
+
+cafo_2020 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/CAFOs/CAFO 2020.csv")
+
+cafo_2024 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/CAFOs/CAFO 2024.csv")
+```
+
+Land area data for each county as of 1 July 2024 were obtained from the Office of State Budget and Management (https://www.osbm.nc.gov/facts-figures/population-demographics/state-demographer/municipal-population-estimates/municipal-and-non-municipal-land-area).
+
+```{r land area}
+land_area <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/State info/NC land area.csv")
+```
+
+Percent insured by county in North Carolina were obtained from ACS 5-year estimates for 2017-2023. This will be used to get percent uninsured estimates and serves as a proxy for healthcare access. We use 5-year estimates because not all of our counties are big enough for 1-year estimates.
+
+```{r percent insured}
+unins_2017 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2017
+)
+
+unins_2018 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2018
+)
+
+unins_2019 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2019
+)
+
+unins_2020 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2020
+)
+
+unins_2021 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2021
+)
+
+unins_2022 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2022
+)
+
+unins_2023 <- get_acs(
+  geography = "county",
+  variables = c(perc_unins = "S2701_C05_001"),
+  state = "NC",
+  year = 2023
+)
+```
+
+The poverty rate by county in North Carolina were obtained from ACS 5-year estimates for 2017-2023.
+
+```{r poverty}
+pov_2017 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2017
+)
+
+pov_2018 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2018
+)
+
+pov_2019 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2019
+)
+
+pov_2020 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2020
+)
+
+pov_2021 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2021
+)
+
+pov_2022 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2022
+)
+
+pov_2023 <- get_acs(
+  geography = "county",
+  variables = c(perc_pov = "S1701_C03_001"),
+  state = "NC",
+  year = 2023
+)
+```
+
+The percent foreign-born by county in  North Carolina were obtained from the North Carolina Office of State Budget and Management.
+
+```{r foreign born}
+foreign_born <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/State info/foreign-born-population-and-citizenship.csv")
+```
+
+
+### 2. Diseases
+
+We're only going to look at:
+
+-   TB
+-   other respiratory (grouped)
+
+```{r diseases 2017}
+## fix variable types
+id_2017$County.Pop.Adjusted <- as.numeric(id_2017$County.Pop.Adjusted)
+id_2017$County.Cases <- as.numeric(id_2017$County.Cases)
+id_2017$County.Incidence <- as.numeric(id_2017$County.Incidence)
+
+## set aside population sizes
+pop_2017 <- id_2017[seq(1, nrow(id_2017), by=9),]
+pop_2017 <- pop_2017 %>%
+  select(County, County.Pop.Adjusted)
+
+## specify TB and ORDs
+id_2017$type[id_2017$Disease=="TB"] <- "TB"
+id_2017$type <- ifelse(
+    id_2017$Disease=="Pertussis" | id_2017$Disease=="Mumps" | 
+    id_2017$Disease=="Meningococcal invasive disease" | 
+    id_2017$Disease=="Legionellosis" |
+    id_2017$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2017$Disease=="Influenza, adult death" | 
+    id_2017$Disease=="Influenza, pediatric death" | 
+    id_2017$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2017$type
+)
+id_2017 <- id_2017[!is.na(id_2017$type),]
+
+## get pooled IRs for the ORDs
+id_2017$n_case <- id_2017$County.Incidence*id_2017$County.Pop.Adjusted/100000
+
+resp_2017 <- id_2017 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2017 <- left_join(resp_2017, pop_2017, by = "County")
+
+resp_2017$p_ir <- resp_2017$cat_n/resp_2017$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2018}
+## fix variable types
+id_2018$County.Pop.Adjusted <- as.numeric(id_2018$County.Pop.Adjusted)
+id_2018$County.Cases <- as.numeric(id_2018$County.Cases)
+id_2018$County.Incidence <- as.numeric(id_2018$County.Incidence)
+
+## specify TB and ORDs
+id_2018$type[id_2018$Disease=="TB"] <- "TB"
+id_2018$type <- ifelse(
+    id_2018$Disease=="Pertussis" | id_2018$Disease=="Mumps" | 
+    id_2018$Disease=="Meningococcal invasive disease" | 
+    id_2018$Disease=="Legionellosis" |
+    id_2018$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2018$Disease=="Influenza, adult death" | 
+    id_2018$Disease=="Influenza, pediatric death" | 
+    id_2018$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2018$type
+)
+id_2018 <- id_2018[!is.na(id_2018$type),]
+
+## set aside population sizes
+pop_2018 <- id_2018[seq(1, nrow(id_2018), by=9),]
+pop_2018 <- pop_2018 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2018$n_case <- id_2018$County.Incidence*id_2018$County.Pop.Adjusted/100000
+
+resp_2018 <- id_2018 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2018 <- left_join(resp_2018, pop_2018, by = "County")
+
+resp_2018$p_ir <- resp_2018$cat_n/resp_2018$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2019}
+## fix variable types
+id_2019$County.Pop.Adjusted <- as.numeric(id_2019$County.Pop.Adjusted)
+id_2019$County.Cases <- as.numeric(id_2019$County.Cases)
+id_2019$County.Incidence <- as.numeric(id_2019$County.Incidence)
+
+## specify TB and ORDs
+id_2019$type[id_2019$Disease=="TB"] <- "TB"
+id_2019$type <- ifelse(
+    id_2019$Disease=="Pertussis" | id_2019$Disease=="Mumps" | 
+    id_2019$Disease=="Meningococcal invasive disease" | 
+    id_2019$Disease=="Legionellosis" |
+    id_2019$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2019$Disease=="Influenza, adult death" | 
+    id_2019$Disease=="Influenza, pediatric death" | 
+    id_2019$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2019$type
+)
+id_2019 <- id_2019[!is.na(id_2019$type),]
+
+## set aside population sizes
+pop_2019 <- id_2019[seq(1, nrow(id_2019), by=9),]
+pop_2019 <- pop_2019 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2019$n_case <- id_2019$County.Incidence*id_2019$County.Pop.Adjusted/100000
+
+resp_2019 <- id_2019 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2019 <- left_join(resp_2019, pop_2019, by = "County")
+
+resp_2019$p_ir <- resp_2019$cat_n/resp_2019$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2020}
+## fix variable types
+id_2020$County.Pop.Adjusted <- as.numeric(id_2020$County.Pop.Adjusted)
+id_2020$County.Cases <- as.numeric(id_2020$County.Cases)
+id_2020$County.Incidence <- as.numeric(id_2020$County.Incidence)
+
+## specify TB and ORDs
+id_2020$type[id_2020$Disease=="TB"] <- "TB"
+id_2020$type <- ifelse(
+    id_2020$Disease=="Pertussis" | id_2020$Disease=="Mumps" | 
+    id_2020$Disease=="Meningococcal invasive disease" | 
+    id_2020$Disease=="Legionellosis" |
+    id_2020$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2020$Disease=="Influenza, adult death" | 
+    id_2020$Disease=="Influenza, pediatric death" | 
+    id_2020$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2020$type
+)
+id_2020 <- id_2020[!is.na(id_2020$type),]
+
+## set aside population sizes
+pop_2020 <- id_2020[seq(1, nrow(id_2020), by=9),]
+pop_2020 <- pop_2020 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2020$n_case <- id_2020$County.Incidence*id_2020$County.Pop.Adjusted/100000
+
+resp_2020 <- id_2020 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2020 <- left_join(resp_2020, pop_2020, by = "County")
+
+resp_2020$p_ir <- resp_2020$cat_n/resp_2020$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2021}
+## fix variable types
+id_2021$County.Pop.Adjusted <- as.numeric(id_2021$County.Pop.Adjusted)
+id_2021$County.Cases <- as.numeric(id_2021$County.Cases)
+id_2021$County.Incidence <- as.numeric(id_2021$County.Incidence)
+
+## specify TB and ORDs
+id_2021$type[id_2021$Disease=="TB"] <- "TB"
+id_2021$type <- ifelse(
+    id_2021$Disease=="Pertussis" | id_2021$Disease=="Mumps" | 
+    id_2021$Disease=="Meningococcal invasive disease" | 
+    id_2021$Disease=="Legionellosis" |
+    id_2021$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2021$Disease=="Influenza, adult death" | 
+    id_2021$Disease=="Influenza, pediatric death" | 
+    id_2021$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2021$type
+)
+id_2021 <- id_2021[!is.na(id_2021$type),]
+
+## set aside population sizes
+pop_2021 <- id_2021[seq(1, nrow(id_2021), by=9),]
+pop_2021 <- pop_2021 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2021$n_case <- id_2021$County.Incidence*id_2021$County.Pop.Adjusted/100000
+
+resp_2021 <- id_2021 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2021 <- left_join(resp_2021, pop_2021, by = "County")
+
+resp_2021$p_ir <- resp_2021$cat_n/resp_2021$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2022}
+## fix variable types
+id_2022$County.Pop.Adjusted <- as.numeric(id_2022$County.Pop.Adjusted)
+id_2022$County.Cases <- as.numeric(id_2022$County.Cases)
+id_2022$County.Incidence <- as.numeric(id_2022$County.Incidence)
+
+## specify TB and ORDs
+id_2022$type[id_2022$Disease=="TB"] <- "TB"
+id_2022$type <- ifelse(
+    id_2022$Disease=="Pertussis" | id_2022$Disease=="Mumps" | 
+    id_2022$Disease=="Meningococcal invasive disease" | 
+    id_2022$Disease=="Legionellosis" |
+    id_2022$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2022$Disease=="Influenza, adult death" | 
+    id_2022$Disease=="Influenza, pediatric death" | 
+    id_2022$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2022$type
+)
+id_2022 <- id_2022[!is.na(id_2022$type),]
+
+## set aside population sizes
+pop_2022 <- id_2022[seq(1, nrow(id_2022), by=9),]
+pop_2022 <- pop_2022 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2022$n_case <- id_2022$County.Incidence*id_2022$County.Pop.Adjusted/100000
+
+resp_2022 <- id_2022 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2022 <- left_join(resp_2022, pop_2022, by = "County")
+
+resp_2022$p_ir <- resp_2022$cat_n/resp_2022$County.Pop.Adjusted*100000
+```
+
+```{r diseases 2023}
+## fix variable types
+id_2023$County.Pop.Adjusted <- as.numeric(id_2023$County.Pop.Adjusted)
+id_2023$County.Cases <- as.numeric(id_2023$County.Cases)
+id_2023$County.Incidence <- as.numeric(id_2023$County.Incidence)
+
+## specify TB and ORDs
+id_2023$type[id_2023$Disease=="TB"] <- "TB"
+id_2023$type <- ifelse(
+    id_2023$Disease=="Pertussis" | id_2023$Disease=="Mumps" | 
+    id_2023$Disease=="Meningococcal invasive disease" | 
+    id_2023$Disease=="Legionellosis" |
+    id_2023$Disease=="Haemophilus influenzae, invasive disease"|
+    id_2023$Disease=="Influenza, adult death" | 
+    id_2023$Disease=="Influenza, pediatric death" | 
+    id_2023$Disease=="Influenza, NOVEL virus infection",
+    "ORD", id_2023$type
+)
+id_2023 <- id_2023[!is.na(id_2023$type),]
+
+## set aside population sizes
+pop_2023 <- id_2023[seq(1, nrow(id_2023), by=9),]
+pop_2023 <- pop_2023 %>%
+  select(County, County.Pop.Adjusted)
+
+## get pooled IRs for the ORDs
+id_2023$n_case <- id_2023$County.Incidence*id_2023$County.Pop.Adjusted/100000
+
+resp_2023 <- id_2023 %>%
+  group_by(County, type) %>%
+  summarize(cat_n = sum(n_case))
+resp_2023 <- left_join(resp_2023, pop_2023, by = "County")
+
+resp_2023$p_ir <- resp_2023$cat_n/resp_2023$County.Pop.Adjusted*100000
+```
+
+### 3. Swine CAFOs
 
 We have multiple entries for each CAFO type because of the different kinds of permits. But we only want swine, and we don't want multiple entries per company at one location. Let's organize that.
 
@@ -50,135 +447,6 @@ swine_df <- cafo_df[cafo_df$Regulated.Operation=="Swine",]
 swine_df <- swine_df %>%
   distinct(Permit.Number, Location.Lat.Num, Location.Long.Num, .keep_all = TRUE)
 saveRDS(swine_df, "swine_df.RDS")
-```
-
-### 3. Diseases
-
-We're only going to look at:
-
--   TB
--   other respiratory (grouped)
--   vector-borne diseases (grouped)
--   food-/water-borne diseases (grouped)
--   healthcare-associated and AMR (grouped)
-
-```{r ID reformatting}
-## selecting 2023
-id2023_df <- countyid_df[countyid_df$Year.of.Year==2023 & countyid_df$Measure.Names=="County Incidence",]
-table(id2023_df$Disease)
-
-## find the unique diseases
-unique_IDs <- unique(id2023_df$Disease)
-
-## get rid of diseases that don't appear in any county
-dis_num <- vector(length=100)
-empties <- vector()
-for(i in 1:length(unique_IDs)){
-  loop_df <- id2023_df[id2023_df$Disease==unique_IDs[i],]
-  dis_num <- sum(loop_df$Measure.Values, na.rm=TRUE)
-  if(dis_num==0){
-    empties <- c(empties, unique_IDs[i])
-  }
-  print(i)
-}
-
-id2023_df <- id2023_df[id2023_df$Disease %!in% empties,]
-  
-# update the unique disease list
-unique_IDs <- unique(id2023_df$Disease)
-
-## categories
-disease_type <- rep(NA, length(unique_IDs))
-ID_types <- data.frame(unique_IDs, disease_type)
-colnames(ID_types) <- c("Disease", "disease_type")
-
-# TB
-ID_types$disease_type[ID_types$Disease=="TB"] <- "TB"
-
-# other respiratory
-ID_types$disease_type <- ifelse(
-  ID_types$Disease=="Pertussis" | ID_types$Disease=="Mumps" | 
-    ID_types$Disease=="Meningococcal invasive disease" | 
-    ID_types$Disease=="Legionellosis" |
-    ID_types$Disease=="Haemophilus influenzae, invasive disease"|
-    ID_types$Disease=="Influenza, adult death" | 
-    ID_types$Disease=="Influenza, pediatric death", 
-  "resp", ID_types$disease_type
-)
-
-# vector-borne
-ID_types$disease_type <- ifelse(
-  ID_types$Disease=="Anaplasmosis" | ID_types$Disease=="Chikungunya" |
-    ID_types$Disease=="Dengue" | ID_types$Disease=="Ehrlichiosis, chaffeensis" |
-    ID_types$Disease=="Ehrlichiosis, unspecified" |
-    ID_types$Disease=="Encephalitis, arboviral, LAC" |
-    ID_types$Disease=="Encephalitis, arboviral, WNV" |
-    ID_types$Disease=="Lyme Disease" | ID_types$Disease=="Malaria" |
-    ID_types$Disease=="Spotted Fever Rickettsiosis" |
-    ID_types$Disease=="Tularemia", 
-  "vec", ID_types$disease_type
-)
-
-# food-/water-borne
-ID_types$disease_type <- ifelse(
-  ID_types$Disease=="Botulism - foodborne/wound" | 
-    ID_types$Disease=="Campylobacteriosis" | 
-    ID_types$Disease=="Cryptosporidiosis" | ID_types$Disease=="Cyclosporiasis" |
-    ID_types$Disease=="E. coli - shiga toxin producing" |
-    ID_types$Disease=="Foodborne dz- C. perfringens" |
-    ID_types$Disease=="Foodborne dz- other/unknown" |
-    ID_types$Disease=="Foodborne dz- Staphylococcal" |
-    ID_types$Disease=="Listeriosis" | ID_types$Disease=="Salmonellosis" |
-    ID_types$Disease=="Shigellosis" | 
-    ID_types$Disease=="Hemolytic Uremic Syndrome", 
-  "fw", ID_types$disease_type
-)
-
-# HAI and AMR
-ID_types$disease_type <- ifelse(
-  ID_types$Disease=="Candida auris" |
-    ID_types$Disease=="Carbapenem-resistant Enterobacterales" |
-    ID_types$Disease=="Staph aureus, reduced suscept. to vancomycin" |
-    ID_types$Disease=="Streptococcal invasive infection, Group A", 
-  "ha", ID_types$disease_type
-)
-
-## drop everything that isn't categorized
-ID_types <- ID_types[!is.na(ID_types$disease_type),]
-
-## join back in, and drop everything that isn't categorized
-id2023_df <- left_join(id2023_df, ID_types, by="Disease")
-id2023_df <- id2023_df[!is.na(id2023_df$disease_type),]
-
-## get raw number of cases for each disease
-id2023_df$n_case <- NA
-id2023_df$n_case <- id2023_df$Measure.Values*id2023_df$County.Pop.Adjusted/100000
-
-## now get total numbers per disease category per county
-id2023_df$tot_n <- NA
-tot_df <- id2023_df %>%
-  group_by(County, disease_type) %>%
-  summarise(dis_cat_tot=sum(n_case))
-
-## now, IRs
-county_pop <- vector()
-counties <- unique(id2023_df$County)
-for(i in 1:length(counties)){
-  county_pop[i] <- max(id2023_df$County.Pop.Adjusted[id2023_df$County==counties[i]])
-}
-county_pop <- data.frame(counties, county_pop)
-colnames(county_pop) <- c("County", "county_pop")
-
-tot_df <- left_join(tot_df, county_pop, by="County")
-tot_df$c_IR <- NA
-tot_df$c_IR <- tot_df$dis_cat_tot/tot_df$county_pop*100000
-```
-
-Using *tot_df* we'll make the final data table that we'll use for analyses.
-```{r making df}
-df <- tot_df[,-3]
-df <- pivot_wider(df, names_from="disease_type", values_from="c_IR")
-df$resp <- round(df$resp, digits=1)
 ```
 
 ### 4. Healthcare access and county size

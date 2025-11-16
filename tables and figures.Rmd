@@ -97,3 +97,22 @@ o1 <- readRDS("o1.RDS"); o2 <- readRDS("o2.RDS"); m3 <- readRDS("m3.RDS"); m4 <-
 
 ```
 
+### 4. Table 1
+
+Looking at overall characteristics in North Carolina.
+
+```{r table 1}
+table()
+```
+
+
+### 5. Table 2
+
+Characteristics by TB level in North Carolina (no TB, low, middle, high)
+
+
+
+
+
+
+
