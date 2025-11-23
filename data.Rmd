@@ -29,7 +29,7 @@ census_api_key("7e09c574348b580868c23ac0304cdea01e65413c", install = TRUE)
 
 ### 1. Loading data
 
-Infectious disease incidence data were downloaded from NCDHHS (https://epi.dph.ncdhhs.gov/cd/figures.html). Data were downloaded one year at a time due to R import issues with multiple-year spreadsheets. 
+Infectious disease incidence data were downloaded from NCDHHS (<https://epi.dph.ncdhhs.gov/cd/figures.html>). Data were downloaded one year at a time due to R import issues with multiple-year spreadsheets.
 
 These data also have the adjusted population sizes of each county.
 
@@ -49,7 +49,7 @@ id_2022 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/
 id_2023 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/Infectious diseases/NC_ID_2023.csv")
 ```
 
-2017 and 2020 CAFO data come from personal correspondence with Dr. Christine Lawson; these spreadsheets were originally publicly available on the NC DEQ website but were replaced by the 2024 spreadsheet (https://www.deq.nc.gov/about/divisions/water-resources/permitting/animal-feeding-operations/animal-facility-map).
+2017 and 2020 CAFO data come from personal correspondence with Dr. Christine Lawson; these spreadsheets were originally publicly available on the NC DEQ website but were replaced by the 2024 spreadsheet (<https://www.deq.nc.gov/about/divisions/water-resources/permitting/animal-feeding-operations/animal-facility-map>).
 
 ```{r CAFOs in NC}
 cafo_2017 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/CAFOs/CAFO 2017.csv")
@@ -59,7 +59,7 @@ cafo_2020 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in N
 cafo_2024 <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/CAFOs/CAFO 2024.csv")
 ```
 
-Land area data for each county as of 1 July 2024 were obtained from the Office of State Budget and Management (https://www.osbm.nc.gov/facts-figures/population-demographics/state-demographer/municipal-population-estimates/municipal-and-non-municipal-land-area).
+Land area data for each county as of 1 July 2024 were obtained from the Office of State Budget and Management (<https://www.osbm.nc.gov/facts-figures/population-demographics/state-demographer/municipal-population-estimates/municipal-and-non-municipal-land-area>).
 
 ```{r land area}
 land_area <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/State info/NC land area.csv")
@@ -171,12 +171,11 @@ pov_2023 <- get_acs(
 )
 ```
 
-The percent foreign-born by county in  North Carolina were obtained from the North Carolina Office of State Budget and Management.
+The percent foreign-born by county in North Carolina were obtained from the North Carolina Office of State Budget and Management (long URL, linked [here](https://linc.osbm.nc.gov/explore/dataset/foreign-born-population-and-citizenship/analyze/?flg=en-us&disjunctive.name&disjunctive.imported_year&disjunctive.variable&dataChart=eyJxdWVyaWVzIjpbeyJjb25maWciOnsiZGF0YXNldCI6ImZvcmVpZ24tYm9ybi1wb3B1bGF0aW9uLWFuZC1jaXRpemVuc2hpcCIsIm9wdGlvbnMiOnsiZmxnIjoiZW4tdXMiLCJkaXNqdW5jdGl2ZS5uYW1lIjp0cnVlLCJkaXNqdW5jdGl2ZS5pbXBvcnRlZF95ZWFyIjp0cnVlLCJkaXNqdW5jdGl2ZS52YXJpYWJsZSI6dHJ1ZX19LCJjaGFydHMiOlt7ImFsaWduTW9udGgiOnRydWUsInR5cGUiOiJsaW5lIiwiZnVuYyI6IkFWRyIsInlBeGlzIjoidmFsdWUiLCJzY2llbnRpZmljRGlzcGxheSI6dHJ1ZSwiY29sb3IiOiIjNDg3QUE4In1dLCJ4QXhpcyI6ImltcG9ydGVkX3llYXIiLCJtYXhwb2ludHMiOiIiLCJ0aW1lc2NhbGUiOiJ5ZWFyIiwic29ydCI6IiJ9XSwiZGlzcGxheUxlZ2VuZCI6dHJ1ZSwiYWxpZ25Nb250aCI6dHJ1ZX0%3D)). Foreign-borne is defined as naturalized residents and non-citizens.
 
 ```{r foreign born}
 foreign_born <- read.csv("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/Data/State info/foreign-born-population-and-citizenship.csv")
 ```
-
 
 ### 2. Diseases
 
@@ -437,91 +436,424 @@ resp_2023 <- left_join(resp_2023, pop_2023, by = "County")
 resp_2023$p_ir <- resp_2023$cat_n/resp_2023$County.Pop.Adjusted*100000
 ```
 
-### 3. Swine CAFOs
+Put it all together into one dataframe; should have 1400 rows (100 counties, 2 disease categories, 7 years).
 
-We have multiple entries for each CAFO type because of the different kinds of permits. But we only want swine, and we don't want multiple entries per company at one location. Let's organize that.
+```{r putting together}
+resp_df <- rbind(resp_2017, resp_2018, resp_2019, resp_2020, resp_2021, resp_2022, resp_2023)
 
-```{r CAFO reformatting}
-table(cafo_df$Regulated.Operation)
-swine_df <- cafo_df[cafo_df$Regulated.Operation=="Swine",]
-swine_df <- swine_df %>%
-  distinct(Permit.Number, Location.Lat.Num, Location.Long.Num, .keep_all = TRUE)
-saveRDS(swine_df, "swine_df.RDS")
+years <- c(rep(2017, times = 200), rep(2018, times = 200), rep(2019, times = 200), rep(2020, times = 200), rep(2021, times = 200), rep(2022, times = 200), rep(2023, times = 200))
+resp_df$year <- years
+saveRDS(resp_df, "resp_df.RDS")
 ```
 
-### 4. Healthcare access and county size
+### 3. Swine CAFOs
 
-Unfortunately, we needed to hardcode this. We added it into the csv of county area.
-```{r hospital beds}
-df <- left_join(df, cb_df, by="County")
-colnames(df)[8] <- "land_area"
-colnames(df)[9] <- "hosp_beds"
+We have three spreadsheets, each formatted a little differently (2017, 2020, 2024). What we want to pull is how many CAFOs are active by county in each of the years between 2017 and 2023.
 
-df$beds_pc <- df$hosp_beds/df$county_pop
+```{r clean}
+## isolate active swine CAFOs
+cafo_2017 <- cafo_2017[cafo_2017$Permit.Status=="Active",]
 
-df <- df[,-9] # drop hospital bed number
+cafo_2017 <- cafo_2017[cafo_2017$Regulated.Operation=="Swine",]
+cafo_2020 <- cafo_2020[cafo_2020$Regulated.Operation=="Swine",]
+cafo_2024 <- cafo_2024[cafo_2024$Regulated.Operation=="Swine",]
 
+## select relevant columns
+cafo_2017 <- cafo_2017 %>%
+  select(Permit.Number, Facility.Name, Original.Issued.Date, Expiration.Date, County.Name, Latitude, Longitude) %>%
+  rename(Issued.Date = Original.Issued.Date) %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  mutate(
+    sheet = 2017,
+    start.year = str_sub(Issued.Date, -4, -1),
+    end.year = str_sub(Expiration.Date, -4, -1)
+  )
+cafo_2017$start.year <- as.numeric(cafo_2017$start.year)
+cafo_2017$end.year <- as.numeric(cafo_2017$end.year)
+  
+cafo_2020 <- cafo_2020 %>%
+  select(Permit.Number, Facility.Name, Issued.Date, Expiration.Date, County.Name, Latitude, Longitude) %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  mutate(
+    sheet = 2020,
+    start.year = str_sub(Issued.Date, -4, -1),
+    end.year = str_sub(Expiration.Date, -4, -1)
+  )
+cafo_2020$start.year <- as.numeric(cafo_2020$start.year)
+cafo_2020$end.year <- as.numeric(cafo_2020$end.year)
+
+cafo_2024 <- cafo_2024 %>%
+  select(Permit.Number, Facility.Name, Issued.Date, Expiration.Date, County.Name, Location.Lat.Num, Location.Long.Num) %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  rename(Latitude = Location.Lat.Num, Longitude = Location.Long.Num) %>%
+  mutate(
+    sheet = 2024,
+    start.year = str_sub(Issued.Date, -4, -1),
+    end.year = str_sub(Expiration.Date, -4, -1)
+  )
+cafo_2024$start.year <- as.numeric(cafo_2024$start.year)
+cafo_2024$end.year <- as.numeric(cafo_2024$end.year)
+
+## join
+cafo_df <- rbind(cafo_2017, cafo_2020, cafo_2024)
+saveRDS(cafo_df, "cafo_df.RDS")
+```
+
+```{r CAFOs by year}
+years <- 2017:2023
+cafo_df <- drop_na(cafo_df)
+
+## was the CAFO active during a given year?
+cafo_df$a2017 <- NA
+cafo_df$a2018 <- NA
+cafo_df$a2019 <- NA
+cafo_df$a2020 <- NA
+cafo_df$a2021 <- NA
+cafo_df$a2022 <- NA
+cafo_df$a2023 <- NA
+
+for(i in 1:nrow(cafo_df)){
+  if(2017 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2017[i] <- TRUE
+  } else {
+    cafo_df$a2017[i] <- FALSE
+  }
+  
+  if(2018 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2018[i] <- TRUE
+  } else {
+    cafo_df$a2018[i] <- FALSE
+  }
+  
+  if(2019 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2019[i] <- TRUE
+  } else {
+    cafo_df$a2019[i] <- FALSE
+  }
+  
+  if(2020 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2020[i] <- TRUE
+  } else {
+    cafo_df$a2020[i] <- FALSE
+  }
+  
+  if(2021 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2021[i] <- TRUE
+  } else {
+    cafo_df$a2021[i] <- FALSE
+  }
+  
+  if(2022 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2022[i] <- TRUE
+  } else {
+    cafo_df$a2022[i] <- FALSE
+  }
+  
+  if(2023 %in% cafo_df$start.year[i]:cafo_df$end.year[i]){
+    cafo_df$a2023[i] <- TRUE
+  } else {
+    cafo_df$a2023[i] <- FALSE
+  }
+}
+
+## separate by year
+clist_2017 <- cafo_df[cafo_df$a2017==TRUE,]
+clist_2017 <- clist_2017 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2017)
+
+clist_2018 <- cafo_df[cafo_df$a2018==TRUE,]
+clist_2018 <- clist_2018 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n())%>%
+  mutate(year = 2018)
+
+clist_2019 <- cafo_df[cafo_df$a2019==TRUE,]
+clist_2019 <- clist_2019 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2019)
+
+clist_2020 <- cafo_df[cafo_df$a2020==TRUE,]
+clist_2020 <- clist_2020 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2020)
+
+clist_2021 <- cafo_df[cafo_df$a2021==TRUE,]
+clist_2021 <- clist_2021 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2021)
+
+clist_2022 <- cafo_df[cafo_df$a2022==TRUE,]
+clist_2022 <- clist_2022 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2022)
+
+clist_2023 <- cafo_df[cafo_df$a2023==TRUE,]
+clist_2023 <- clist_2023 %>%
+  distinct(Permit.Number, .keep_all = TRUE) %>%
+  group_by(County.Name) %>%
+  summarize(count = n()) %>%
+  mutate(year = 2023)
+
+## combine
+clist_df <- rbind(clist_2017, clist_2018, clist_2019, clist_2020, clist_2021, clist_2022, clist_2023)
+```
+
+Lastly, we want to get the density of CAFOs per square mile by county.
+
+```{r CAFO density}
+clist_df <- clist_df %>%
+  rename(County = County.Name)
+clist_df <- left_join(clist_df, land_area, by = "County")
+
+clist_df$cafo_psm <- clist_df$count/clist_df$Total.Land.Area
+```
+
+Lastly, drop the "Out of State" entries and save.
+
+```{r finalize}
+clist_df <- drop_na(clist_df)
+
+saveRDS(clist_df, "clist_df.RDS")
+```
+
+### 4. Healthcare access/Uninsured
+
+We want to combine all the data into one dataframe, with uninsured rate by county by year.
+
+```{r uninsured}
+unins_2017 <- unins_2017 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2017
+  )
+
+unins_2018 <- unins_2018 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2018
+  )
+
+unins_2019 <- unins_2019 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2019
+  )
+
+unins_2020 <- unins_2020 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2020
+  )
+
+unins_2021 <- unins_2021 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2021
+  )
+
+unins_2022 <- unins_2022 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2022
+  )
+
+unins_2023 <- unins_2023 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_unins = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2023
+  )
+
+## combine
+unins_df <- rbind(unins_2017, unins_2018, unins_2019, unins_2020, unins_2021, unins_2022, unins_2023)
+saveRDS(unins_df, "unins_df.RDS")
 ```
 
 ### 5. Poverty
 
 We will add the percent of county living in poverty.
+
 ```{r poverty}
-colnames(poverty_df)[1] <- "County"
-poverty_df$County <- str_remove(poverty_df$County, " County")
-df <- left_join(df, poverty_df, by="County")
-df <- df %>%
-  select(-Area.Type, -Year, -Variable) %>%
-  rename(Percent.in.Poverty = Value)
+pov_2017 <- pov_2017 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2017
+  )
+
+pov_2018 <- pov_2018 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2018
+  )
+
+pov_2019 <- pov_2019 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2019
+  )
+
+pov_2020 <- pov_2020 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2020
+  )
+
+pov_2021 <- pov_2021 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2021
+  )
+
+pov_2022 <- pov_2022 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2022
+  )
+
+pov_2023 <- pov_2023 %>%
+  select(NAME, estimate) %>%
+  rename(
+    County = NAME,
+    perc_pov = estimate
+  ) %>%
+  mutate(
+    County = str_remove(County, " County, North Carolina"),
+    year = 2023
+  )
+
+## combine
+pov_df <- rbind(pov_2017, pov_2018, pov_2019, pov_2020, pov_2021, pov_2022, pov_2023)
+saveRDS(pov_df, "pov_df.RDS")
 ```
 
+### 6. Foreign-born
 
-### 6. Combining CAFO and ID dataframes
+Already in one dataframe, just need to clean it up a little. We will calculate the percent later.
 
-Finally, we want density of CAFOs per county (CAFOs per square mile). 
-```{r CAFO density}
-cbc_table <- as.data.frame(table(swine_df$County.Name))
-colnames(cbc_table) <- c("County", "cafo_num")
-
-df <- left_join(df, cbc_table)
-df$cafo_num <- ifelse(is.na(df$cafo_num), 0, df$cafo_num)
-
-df$cafo_dens <- df$cafo_num/df$land_area
-```
-
-### 7. Population density
-```{r popdens}
-df$pop_dens <- df$county_pop/df$land_area
-```
-
-### 8. Foreign-born
 ```{r foreign-born}
-foreign_df <- foreign_df[116,]
-keep_foreign <- vector()
-for(i in 1:100){
-  keep_foreign[i] <- 6+((i-1)*4)
-}
-foreign_df <- foreign_df[,keep_foreign]
-foreign_df <- pivot_longer(foreign_df, cols=1:100, names_to="County")
-colnames(foreign_df) <- c("County", "foreign")
-foreign_df$County <- str_remove(foreign_df$County, ".County..North.Carolina..Estimate")
-foreign_df$foreign <- str_remove(foreign_df$foreign, ",")
-foreign_df$foreign <- as.numeric(foreign_df$foreign)
-
-df <- left_join(df, foreign_df, by="County")
-df$foreign <- str_remove(df$foreign, ",")
-df$foreign <- as.numeric(df$foreign)
-
-df <- df %>%
-  mutate(f_perc=foreign/county_pop*100)
-
-## hard code New Hanover County
-df$f_perc[65] <- 6.07
+foreign_df <- foreign_born %>%
+  select(Area.Name, Year, Value) %>%
+  rename(
+    County = Area.Name,
+    year = Year,
+    n_foreign = Value
+  ) %>%
+  mutate(County = str_remove(County, " County"))
 ```
 
-### 9. Save
+### 7. Combine and save
+
+Combine all the data into one dataframe in panel format for longitudinal analyses.
+
+```{r combine}
+df <- left_join(resp_df, clist_df, by = c("County", "year"))
+df <- left_join(df, unins_df, by = c("County", "year"))
+df <- left_join(df, pov_df, by = c("County", "year"))
+df <- left_join(df, foreign_df, by = c("County", "year"))
+
+df <- df %>%
+  select(-Total.Land.Area)
+df <- left_join(df, land_area, by = "County")
+
+df$count <- ifelse(is.na(df$count), 0, df$count)
+df$cafo_psm <- ifelse(is.na(df$cafo_psm), 0, df$cafo_psm)
+```
+
+We still need to get population density and *percent* foreign-born, not just count.
+
+```{r more variables}
+## population density
+df$pop_dens <- df$County.Pop.Adjusted/df$Total.Land.Area
+
+## percent foreign-born
+df$perc_foreign <- df$n_foreign/df$County.Pop.Adjusted
+```
+
+Rearrange to make more sense.
+
+```{r rearrange}
+df <- df %>%
+  select(year, County, type, cat_n, County.Pop.Adjusted, p_ir, count, cafo_psm, perc_unins, perc_pov, n_foreign, Total.Land.Area, pop_dens, perc_foreign)
+```
+
+Save final df!
+
 ```{r saving dfs}
-saveRDS(swine_df, "swine_df.RDS")
 saveRDS(df, "df.RDS")
 ```
-

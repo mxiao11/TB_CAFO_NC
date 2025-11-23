@@ -27,24 +27,64 @@ library(car)
 NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp")
 
 df <- readRDS("df.RDS")
-swine_df <- readRDS("swine_df.RDS")
+cafo_df <- readRDS("cafo_df.RDS")
 ```
 
 ### 1. EDA
 
+Split the df into individual years and diseases so that we can look year by year and by disease.
+```{r split dfs}
+## everything, by year
+df_2017 <- df[df$year==2017,]
+df_2018 <- df[df$year==2018,]
+df_2019 <- df[df$year==2019,]
+df_2020 <- df[df$year==2020,]
+df_2021 <- df[df$year==2021,]
+df_2022 <- df[df$year==2022,]
+df_2023 <- df[df$year==2023,]
+
+## TB by year
+df_2017tb <- df[df$year==2017 & df$type=="TB",]
+df_2018tb <- df[df$year==2018 & df$type=="TB",]
+df_2019tb <- df[df$year==2019 & df$type=="TB",]
+df_2020tb <- df[df$year==2020 & df$type=="TB",]
+df_2021tb <- df[df$year==2021 & df$type=="TB",]
+df_2022tb <- df[df$year==2022 & df$type=="TB",]
+df_2023tb <- df[df$year==2023 & df$type=="TB",]
+
+## ORD by year
+df_2017ord <- df[df$year==2017 & df$type=="ORD",]
+df_2018ord <- df[df$year==2018 & df$type=="ORD",]
+df_2019ord <- df[df$year==2019 & df$type=="ORD",]
+df_2020ord <- df[df$year==2020 & df$type=="ORD",]
+df_2021ord <- df[df$year==2021 & df$type=="ORD",]
+df_2022ord <- df[df$year==2022 & df$type=="ORD",]
+df_2023ord <- df[df$year==2023 & df$type=="ORD",]
+
+## split by disease
+df_tb <- df[df$type=="TB",]; saveRDS(df_tb, "df_tb.RDS")
+df_ord <- df[df$type=="ORD",]; saveRDS(df_ord, "df_ord.RDS")
+```
+
 Going to start by looking at all the covariates.
 ```{r EDA}
-summary(df$county_pop); hist(df$county_pop)
-summary(df$TB); hist(df$TB)
-summary(df$fw); hist(df$fw)
-summary(df$ha); hist(df$ha)
-summary(df$resp); hist(df$resp)
-summary(df$vec); hist(df$vec)
-summary(df$beds_incid); hist(df$beds_incid)
-summary(df$Percent.in.Poverty); hist(df$Percent.in.Poverty)
-summary(df$cafo_dens); hist(df$cafo_dens)
+summary(df_2017$cafo_psm)
+summary(df_2017$perc_unins)
+summary(df_2017$perc_pov)
+summary(df_2017$perc_foreign)
+summary(df_2017$pop_dens)
 
-plot(df$Percent.in.Poverty, df$cafo_dens)
+plot(df_2017$perc_pov, df_2017$cafo_psm)
+plot(df_2017$cafo_psm, df_2017$p_ir)
+
+summary(df_2023$cafo_psm)
+summary(df_2023$perc_unins)
+summary(df_2023$perc_pov)
+summary(df_2023$perc_foreign)
+summary(df_2023$pop_dens)
+
+plot(df_2023$perc_pov, df_2023$cafo_psm)
+plot(df_2023$cafo_psm, df_2023$p_ir)
 ```
 
 Do we see correlation among our variables?
@@ -58,75 +98,109 @@ cor.table
 
 ### 2. Map
 
-For final figures, we would want to do a better job of selecting cutpoints (based more on quantiles) but for now we're just doing five cuts.
 ```{r make maps}
-## pop density
-class_pd <- cut(df$pop_dens, 5)
+## CAFO density
+q_cafo2017 <- unname(quantile(df_2017tb$cafo_psm, probs = seq(0, 1, 0.2)))
+q_cafo2017 <- q_cafo2017[-1]
+class_cafo2017 <- cut(df_2017tb$cafo_psm, breaks = q_cafo2017)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_pd)) +
+  geom_sf(aes(fill=class_cafo2017)) +
   scale_fill_brewer(palette="OrRd")
 
-## CAFO density
-class_cafo <- cut(df$cafo_dens, 5)
+q_cafo2020 <- unname(quantile(df_2020tb$cafo_psm, probs = seq(0, 1, 0.2)))
+q_cafo2020 <- q_cafo2020[-1]
+class_cafo2020 <- cut(df_2020tb$cafo_psm, breaks = q_cafo2020)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_cafo)) +
+  geom_sf(aes(fill=class_cafo2020)) +
+  scale_fill_brewer(palette="OrRd")
+
+q_cafo2023 <- unname(quantile(df_2023tb$cafo_psm, probs = seq(0, 1, 0.2)))
+q_cafo2023 <- q_cafo2023[-1]
+class_cafo2023 <- cut(df_2023tb$cafo_psm, breaks = q_cafo2023)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_cafo2023)) +
   scale_fill_brewer(palette="OrRd")
 
 ## poverty
-class_pov <- cut(df$Percent.in.Poverty, 5)
+q_pov2017 <- unname(quantile(df_2017tb$perc_pov, probs = seq(0, 1, 0.25)))
+q_pov2017 <- c(0, q_pov2017)
+class_pov2017 <- cut(df_2017tb$perc_pov, breaks = q_pov2017)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_pov)) +
+  geom_sf(aes(fill=class_pov2017)) +
   scale_fill_brewer(palette="OrRd")
 
-## TB
-class_TB <- cut(df$TB, 5)
+q_pov2020 <- unname(quantile(df_2020tb$perc_pov, probs = seq(0, 1, 0.25)))
+q_pov2020 <- c(0, q_pov2020)
+class_pov2020 <- cut(df_2020tb$perc_pov, breaks = q_pov2020)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_TB)) +
+  geom_sf(aes(fill=class_pov2020)) +
   scale_fill_brewer(palette="OrRd")
 
-## fw
-class_fw <- cut(df$fw, 5)
+q_pov2023 <- unname(quantile(df_2023tb$perc_pov, probs = seq(0, 1, 0.25)))
+q_pov2023 <- c(0, q_pov2023)
+class_pov2023 <- cut(df_2023tb$perc_pov, breaks = q_pov2023)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_fw)) +
+  geom_sf(aes(fill=class_pov2023)) +
   scale_fill_brewer(palette="OrRd")
 
-## ha
-class_ha <- cut(df$ha, 5)
+## pop density
+q_pd2017 <- unname(quantile(df_2017tb$pop_dens, probs = seq(0, 1, 0.25)))
+q_pd2017 <- c(0, q_pd2017)
+class_pd2017 <- cut(df_2017tb$pop_dens, breaks = q_pd2017)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_ha)) +
+  geom_sf(aes(fill=class_pd2017)) +
   scale_fill_brewer(palette="OrRd")
 
-## resp
-class_resp <- cut(df$resp, 5)
+q_pd2020 <- unname(quantile(df_2020tb$pop_dens, probs = seq(0, 1, 0.25)))
+q_pd2020 <- c(0, q_pd2020)
+class_pd2020 <- cut(df_2020tb$pop_dens, breaks = q_pd2020)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_resp)) +
+  geom_sf(aes(fill=class_pd2020)) +
   scale_fill_brewer(palette="OrRd")
 
-## vec
-class_vec <- cut(df$vec, 5)
+q_pd2023 <- unname(quantile(df_2023tb$pop_dens, probs = seq(0, 1, 0.25)))
+q_pd2023 <- c(0, q_pd2023)
+class_pd2023 <- cut(df_2023tb$pop_dens, breaks = q_pd2023)
 ggplot(NC_sf) +
-  geom_sf(aes(fill=class_vec)) +
+  geom_sf(aes(fill=class_pd2023)) +
   scale_fill_brewer(palette="OrRd")
 
+## foreign-born
+q_for2017 <- unname(quantile(df_2017tb$perc_foreign, probs = seq(0, 1, 0.25)))
+q_for2017 <- c(0, q_for2017)
+class_for2017 <- cut(df_2017tb$perc_foreign, breaks = q_for2017)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_for2017)) +
+  scale_fill_brewer(palette="OrRd")
+
+q_for2020 <- unname(quantile(df_2020tb$perc_foreign, probs = seq(0, 1, 0.25)))
+q_for2020 <- c(0, q_for2020)
+class_for2020 <- cut(df_2020tb$perc_foreign, breaks = q_for2020)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_for2020)) +
+  scale_fill_brewer(palette="OrRd")
+
+q_for2023 <- unname(quantile(df_2023tb$perc_foreign, probs = seq(0, 1, 0.25)))
+q_for2023 <- c(0, q_for2023)
+class_for2023 <- cut(df_2023tb$perc_foreign, breaks = q_for2023)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_for2023)) +
+  scale_fill_brewer(palette="OrRd")
 ```
 
-Based on this EDA, it might not be interesting to look at vector-borne diseases or HAIs. 
 
 ### 3. Simple linear regression
 
 ```{r linreg}
-m1 <- lm(TB ~ cafo_dens, data=df)
+m1 <- lm(p_ir ~ cafo_psm, data=df_tb)
 summary(m1)
 
-m2 <- lm(fw ~ cafo_dens, data=df)
+m2 <- lm(p_ir ~ cafo_psm, data=df_ord)
 summary(m2)
-
-m3 <- lm(resp ~ cafo_dens, data=df)
-summary(m3)
 ```
 
 ```{r multi linreg}
-m4 <- lm(TB ~ cafo_dens + pop_dens + beds_incid + Percent.in.Poverty, data=df)
+m4 <- lm(p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov + perc_foreign, data=df_tb)
 summary(m4)
 vif(m4)
 

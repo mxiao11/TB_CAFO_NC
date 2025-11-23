@@ -14,20 +14,40 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load packages}
 library(tidyverse)
 library(ggplot2)
+library(sf)
 library(spdep)
 library(bispdep)
 library(spatialreg)
+library(splm)
+library(plm)
 ```
 
 ```{r load data}
 NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp") 
 
-df <- readRDS("df.RDS")
-swine_df <- readRDS("swine_df.RDS")
+df_tb <- readRDS("df_tb.RDS")
+df_ord <- readRDS("df_ord.RDS")
 ```
 
 ```{r combine data}
-NC_all <- left_join(NC_sf, df, by="County")
+NC_tb <- left_join(NC_sf, df_tb, by="County")
+NC_ord <- left_join(NC_sf, df_ord, by="County")
+
+NC_tb2017 <- left_join(NC_sf, df_2017tb, by="County")
+NC_tb2018 <- left_join(NC_sf, df_2018tb, by="County")
+NC_tb2019 <- left_join(NC_sf, df_2019tb, by="County")
+NC_tb2020 <- left_join(NC_sf, df_2020tb, by="County")
+NC_tb2021 <- left_join(NC_sf, df_2021tb, by="County")
+NC_tb2022 <- left_join(NC_sf, df_2022tb, by="County")
+NC_tb2023 <- left_join(NC_sf, df_2023tb, by="County")
+
+NC_ord2017 <- left_join(NC_sf, df_2017ord, by="County")
+NC_ord2018 <- left_join(NC_sf, df_2018ord, by="County")
+NC_ord2019 <- left_join(NC_sf, df_2019ord, by="County")
+NC_ord2020 <- left_join(NC_sf, df_2020ord, by="County")
+NC_ord2021 <- left_join(NC_sf, df_2021ord, by="County")
+NC_ord2022 <- left_join(NC_sf, df_2022ord, by="County")
+NC_ord2023 <- left_join(NC_sf, df_2023ord, by="County")
 ```
 
 We're only going to look at TB and other respiratory illnesses to compare.
@@ -36,78 +56,176 @@ The steps we'll take for spatial analyses are:
 
 1.  Defining neighbors and creating spatial weights matrix
 
-2.  Univariate Moran's I
+2.  Univariate Moran's I - cross-sectionally by year
 
-3.  Bivariate Moran's I
+3.  Bivariate Moran's I - cross-sectionally by year
 
-4.  Spatial regression
+4.  Prepare panel data
 
-5.  Visualizing results
+5.  Hausman test
 
-6.  Mediation analyses
+6.  Spatial regression (Durbin) - longitudinal/panel
+
+7.  Visualizing results
 
 ### 1. TB
 
-Defining neighbors and making spatial weights matrix
+**Defining neighbors and making spatial weights matrix**
 
 ```{r define neighbors}
-nb <- poly2nb(NC_all, queen=TRUE)
+nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
-Univariate Moran's I
+**Univariate Moran's I**
 
 ```{r uni Moran's}
-### FOR CAFOs
-NC_all$lag <- lag.listw(weights, NC_all$cafo_dens)
-m1 <- lm(lag ~ cafo_dens, NC_all)
-plot(lag ~ cafo_dens, NC_all)
-abline(m1, col="blue")
-abline(v=mean(NC_all$cafo_dens), lty=3, col="grey70")
-abline(h=mean(NC_all$cafo_dens), lty=3, col="grey70")
+## 2017
+### CAFOs
+NC_tb2017$lag <- lag.listw(weights, NC_tb2017$cafo_psm)
+m1 <- lm(lag ~ cafo_psm, NC_tb2017)
+plot(lag ~ cafo_psm, NC_tb2017); abline(m1, col="blue"); abline(v=mean(NC_tb2017$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2017$cafo_psm), lty=3, col="grey70")
 
 ## get the coefficient
-um_cafo <- moran(NC_all$cafo_dens, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo <- moran(NC_tb2017$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
 um_cafo
 
 ## statistical significance
-MC <- moran.mc(NC_all$cafo_dens, weights, nsim=999)
+MC <- moran.mc(NC_tb2017$cafo_psm, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
 
 ### FOR TB
 ## Moran's I scatterplot
-NC_all$lag <- lag.listw(weights, NC_all$TB)
-m2 <- lm(lag ~ TB, NC_all)
-plot(lag ~ TB, NC_all)
-abline(m2, col="blue")
-abline(v=mean(NC_all$TB), lty=3, col="grey70")
-abline(h=mean(NC_all$TB), lty=3, col="grey70")
+NC_tb2017$lag <- lag.listw(weights, NC_tb2017$p_ir)
+m2 <- lm(lag ~ p_ir, NC_tb2017)
+plot(lag ~ p_ir, NC_tb2017); abline(m2, col="blue"); abline(v=mean(NC_tb2017$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2017$p_ir), lty=3, col="grey70")
 
 ## get the coefficient
-um_TB <- moran(NC_all$TB, listw=weights, n=length(nb), S0=Szero(weights))
-um_TB
+um_p_ir <- moran(NC_tb2017$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_p_ir
 
 ## statistical significance
-MC <- moran.mc(NC_all$TB, weights, nsim=999)
+MC <- moran.mc(NC_tb2017$p_ir, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+## 2020
+### CAFOs
+NC_tb2020$lag <- lag.listw(weights, NC_tb2020$cafo_psm)
+m1 <- lm(lag ~ cafo_psm, NC_tb2020)
+plot(lag ~ cafo_psm, NC_tb2020); abline(m1, col="blue"); abline(v=mean(NC_tb2020$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2020$cafo_psm), lty=3, col="grey70")
+
+## get the coefficient
+um_cafo <- moran(NC_tb2020$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo
+
+## statistical significance
+MC <- moran.mc(NC_tb2020$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+### FOR TB
+## Moran's I scatterplot
+NC_tb2020$lag <- lag.listw(weights, NC_tb2020$p_ir)
+m2 <- lm(lag ~ p_ir, NC_tb2020)
+plot(lag ~ p_ir, NC_tb2020); abline(m2, col="blue"); abline(v=mean(NC_tb2020$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2020$p_ir), lty=3, col="grey70")
+
+## get the coefficient
+um_p_ir <- moran(NC_tb2020$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_p_ir
+
+## statistical significance
+MC <- moran.mc(NC_tb2020$p_ir, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+## 2023
+### CAFOs
+NC_tb2023$lag <- lag.listw(weights, NC_tb2023$cafo_psm)
+m1 <- lm(lag ~ cafo_psm, NC_tb2023)
+plot(lag ~ cafo_psm, NC_tb2023); abline(m1, col="blue"); abline(v=mean(NC_tb2023$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2023$cafo_psm), lty=3, col="grey70")
+
+## get the coefficient
+um_cafo <- moran(NC_tb2023$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo
+
+## statistical significance
+MC <- moran.mc(NC_tb2023$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+### FOR TB
+## Moran's I scatterplot
+NC_tb2023$lag <- lag.listw(weights, NC_tb2023$p_ir)
+m2 <- lm(lag ~ p_ir, NC_tb2023)
+plot(lag ~ p_ir, NC_tb2023); abline(m2, col="blue"); abline(v=mean(NC_tb2023$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2023$p_ir), lty=3, col="grey70")
+
+## get the coefficient
+um_p_ir <- moran(NC_tb2023$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_p_ir
+
+## statistical significance
+MC <- moran.mc(NC_tb2023$p_ir, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
 ```
 
-Bivariate Moran's I
+The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.
+
+**Bivariate Moran's I**
 
 ```{r bi Moran's}
+## 2017
 ## get the coefficient
-bm_TB <- moran.bi(NC_all$TB, NC_all$cafo_dens, weights)
-bm_TB
+bm_TB2017 <- moran.bi(NC_tb2017$p_ir, NC_tb2017$cafo_psm, weights)
+bm_TB2017
 
 ## statistical significance
-MC <- moranbi.mc(NC_all$TB, NC_all$cafo_dens, weights, nsim=999)
+MC <- moranbi.mc(NC_tb2017$p_ir, NC_tb2017$cafo_psm, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
+
+## 2020
+## get the coefficient
+bm_TB2020 <- moran.bi(NC_tb2020$p_ir, NC_tb2020$cafo_psm, weights)
+bm_TB2020
+
+## statistical significance
+MC <- moranbi.mc(NC_tb2020$p_ir, NC_tb2020$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+## 2023
+## get the coefficient
+bm_TB2023 <- moran.bi(NC_tb2023$p_ir, NC_tb2023$cafo_psm, weights)
+bm_TB2023
+
+## statistical significance
+MC <- moranbi.mc(NC_tb2023$p_ir, NC_tb2023$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+```
+
+Like with the individual Moran's I, 2020 has the lowest I.
+
+**Prepare panel data**
+
+```{r prepare panel data}
+df_tb <- df_tb %>%
+  select(County, year, type, cat_n, County.Pop.Adjusted, p_ir, count, cafo_psm, perc_unins, perc_pov, n_foreign, Total.Land.Area, pop_dens, perc_foreign) %>%
+  arrange(County, year)
+
+panel_tb <- pdata.frame(df_tb, index = c("County", "year"))
 ```
 
 Since we see spatial autocorrelation, we do a spatial regression
@@ -115,16 +233,16 @@ Since we see spatial autocorrelation, we do a spatial regression
 ```{r spatial regression}
 ## OLS
 o1 <- lm(
-  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_all
+  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = NC_tb
 )
 summary(o1)
 saveRDS(o1, "o1.RDS")
 
 ## SAR
 m3 <- lagsarlm(
-  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_all,
+  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  data = NC_tb,
   listw = weights
 )
 summary(m3)
@@ -137,7 +255,7 @@ summary(m3_impacts, zstats=TRUE)
 
 ## SER
 m4 <- errorsarlm(
-  TB ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
+  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
   data = df, 
   listw = weights
 )
@@ -162,7 +280,7 @@ Now we compare to what that looks like with other respiratory illnesses.
 Defining neighbors and making spatial weights matrix
 
 ```{r define neighbors}
-nb <- poly2nb(NC_all, queen=TRUE)
+nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
@@ -170,19 +288,19 @@ Univariate Moran's I
 
 ```{r uni Moran's}
 ## Moran's I scatterplot
-NC_all$lag <- lag.listw(weights, NC_all$resp)
-m5 <- lm(lag ~ resp, NC_all)
-plot(lag ~ resp, NC_all)
+NC_sf$lag <- lag.listw(weights, NC_sf$resp)
+m5 <- lm(lag ~ resp, NC_sf)
+plot(lag ~ resp, NC_sf)
 abline(m5, col="blue")
-abline(v=mean(NC_all$resp), lty=3, col="grey70")
-abline(h=mean(NC_all$resp), lty=3, col="grey70")
+abline(v=mean(NC_sf$resp), lty=3, col="grey70")
+abline(h=mean(NC_sf$resp), lty=3, col="grey70")
 
 ## get the coefficient
-um_resp <- moran(NC_all$resp, listw=weights, n=length(nb), S0=Szero(weights))
+um_resp <- moran(NC_sf$resp, listw=weights, n=length(nb), S0=Szero(weights))
 um_resp
 
 ## statistical significance
-MC <- moran.mc(NC_all$resp, weights, nsim=999)
+MC <- moran.mc(NC_sf$resp, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
@@ -192,11 +310,11 @@ Bivariate Moran's I
 
 ```{r bi Moran's}
 ## get the coefficient
-bm_resp <- moran.bi(NC_all$resp, NC_all$cafo_dens, weights)
+bm_resp <- moran.bi(NC_sf$resp, NC_sf$cafo_dens, weights)
 bm_resp
 
 ## statistical significance
-MC <- moranbi.mc(NC_all$resp, NC_all$cafo_dens, weights, nsim=999)
+MC <- moranbi.mc(NC_sf$resp, NC_sf$cafo_dens, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
@@ -216,7 +334,7 @@ saveRDS(o2, "o2.RDS")
 ## SAR
 m6 <- lagsarlm(
   resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_all,
+  data = NC_sf,
   listw = weights
 )
 summary(m6)
