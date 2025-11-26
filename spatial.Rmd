@@ -14,12 +14,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load packages}
 library(tidyverse)
 library(ggplot2)
+library(car)
 library(sf)
 library(spdep)
 library(bispdep)
 library(spatialreg)
 library(splm)
 library(plm)
+library(GWmodel)
 ```
 
 ```{r load data}
@@ -56,21 +58,28 @@ The steps we'll take for spatial analyses are:
 
 1.  Defining neighbors and creating spatial weights matrix
 
-2.  Univariate Moran's I - cross-sectionally by year
+2.  Univariate global Moran's I - cross-sectionally by year
 
 3.  Bivariate Moran's I - cross-sectionally by year
 
-4.  Prepare panel data
+4.  Local Moran's I - cross-sectionally by year
 
-5.  Hausman test
+5.  Prepare panel data
 
-6.  Spatial regression (Durbin) - longitudinal/panel
+6.  Spatial regression - SEM
 
-7.  Visualizing results
+7.  Troubleshooting
 
+8.  GTWR
+
+9.  Visualizing results
+
+
+
+S
 ### 1. TB
 
-**Defining neighbors and making spatial weights matrix**
+#### Defining neighbors and making spatial weights matrix
 
 ```{r define neighbors}
 nb <- poly2nb(NC_sf, queen=TRUE)
@@ -79,28 +88,55 @@ weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 
 **Univariate Moran's I**
 
-```{r uni Moran's}
-## 2017
-### CAFOs
+We will do these for TB (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals. Lastly, calculate local Moran's.
+
+```{r year 2017}
+### CAFOs ----
 NC_tb2017$lag <- lag.listw(weights, NC_tb2017$cafo_psm)
 m1 <- lm(lag ~ cafo_psm, NC_tb2017)
 plot(lag ~ cafo_psm, NC_tb2017); abline(m1, col="blue"); abline(v=mean(NC_tb2017$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2017$cafo_psm), lty=3, col="grey70")
 
+### plotting residuals
+r_cafo17 <- tibble(
+  res = m1$residuals,
+  fitted = m1$fitted.values
+)
+
+ggplot(data = r_cafo17, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
 ## get the coefficient
-um_cafo <- moran(NC_tb2017$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
-um_cafo
+um_cafo17 <- moran(NC_tb2017$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo17
 
 ## statistical significance
-MC <- moran.mc(NC_tb2017$cafo_psm, weights, nsim=999)
-MC
-plot(MC)
-MC$p.value
+MC_cafo17 <- moran.mc(NC_tb2017$cafo_psm, weights, nsim=999)
+MC_cafo17
+plot(MC_cafo17)
+MC_cafo17$p.value
 
-### FOR TB
+## Moran's on residuals
+rm_cafo17 <- lm.morantest(m1, listw = weights, alternative = "greater")
+rm_cafo17
+
+### TB ----
 ## Moran's I scatterplot
 NC_tb2017$lag <- lag.listw(weights, NC_tb2017$p_ir)
 m2 <- lm(lag ~ p_ir, NC_tb2017)
 plot(lag ~ p_ir, NC_tb2017); abline(m2, col="blue"); abline(v=mean(NC_tb2017$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2017$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_tb17 <- tibble(
+  res = m2$residuals,
+  fitted = m2$fitted.values
+)
+
+ggplot(data = r_tb17, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
 um_p_ir <- moran(NC_tb2017$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
@@ -112,74 +148,154 @@ MC
 plot(MC)
 MC$p.value
 
-## 2020
-### CAFOs
+## Moran's on residuals
+rm_tb17 <- lm.morantest(m2, listw = weights, alternative = "greater")
+rm_tb17
+
+## Lagrange tests for TB
+lm.LMtests(m2, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m2, weights, test = c("RLMerr", "RLMlag"))
+```
+
+```{r year 2020}
+### CAFOs ----
 NC_tb2020$lag <- lag.listw(weights, NC_tb2020$cafo_psm)
-m1 <- lm(lag ~ cafo_psm, NC_tb2020)
-plot(lag ~ cafo_psm, NC_tb2020); abline(m1, col="blue"); abline(v=mean(NC_tb2020$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2020$cafo_psm), lty=3, col="grey70")
+m3 <- lm(lag ~ cafo_psm, NC_tb2020)
+plot(lag ~ cafo_psm, NC_tb2020); abline(m3, col="blue"); abline(v=mean(NC_tb2020$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2020$cafo_psm), lty=3, col="grey70")
+
+### plotting residuals
+r_cafo20 <- tibble(
+  res = m3$residuals,
+  fitted = m3$fitted.values
+)
+
+ggplot(data = r_cafo20, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
-um_cafo <- moran(NC_tb2020$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
-um_cafo
+um_cafo20 <- moran(NC_tb2020$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo20
 
 ## statistical significance
-MC <- moran.mc(NC_tb2020$cafo_psm, weights, nsim=999)
-MC
-plot(MC)
-MC$p.value
+MC_cafo20 <- moran.mc(NC_tb2020$cafo_psm, weights, nsim=999)
+MC_cafo20
+plot(MC_cafo20)
+MC_cafo20$p.value
 
-### FOR TB
+## Moran's on residuals
+rm_cafo20 <- lm.morantest(m3, listw = weights, alternative = "greater")
+rm_cafo20
+
+### TB ----
 ## Moran's I scatterplot
 NC_tb2020$lag <- lag.listw(weights, NC_tb2020$p_ir)
-m2 <- lm(lag ~ p_ir, NC_tb2020)
-plot(lag ~ p_ir, NC_tb2020); abline(m2, col="blue"); abline(v=mean(NC_tb2020$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2020$p_ir), lty=3, col="grey70")
+m4 <- lm(lag ~ p_ir, NC_tb2020)
+plot(lag ~ p_ir, NC_tb2020); abline(m4, col="blue"); abline(v=mean(NC_tb2020$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2020$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_tb20 <- tibble(
+  res = m4$residuals,
+  fitted = m4$fitted.values
+)
+
+ggplot(data = r_tb20, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
-um_p_ir <- moran(NC_tb2020$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
-um_p_ir
+um_tb20 <- moran(NC_tb2020$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_tb20
 
 ## statistical significance
-MC <- moran.mc(NC_tb2020$p_ir, weights, nsim=999)
-MC
-plot(MC)
-MC$p.value
+MC_tb20 <- moran.mc(NC_tb2020$p_ir, weights, nsim=999)
+MC_tb20
+plot(MC_tb20)
+MC_tb20$p.value
 
-## 2023
-### CAFOs
+## Moran's on residuals
+rm_tb20 <- lm.morantest(m4, listw = weights, alternative = "greater")
+rm_tb20
+
+## Lagrange tests for TB
+lm.LMtests(m4, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m4, weights, test = c("RLMerr", "RLMlag"))
+```
+
+```{r year 2023}
+### CAFOs ----
 NC_tb2023$lag <- lag.listw(weights, NC_tb2023$cafo_psm)
-m1 <- lm(lag ~ cafo_psm, NC_tb2023)
-plot(lag ~ cafo_psm, NC_tb2023); abline(m1, col="blue"); abline(v=mean(NC_tb2023$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2023$cafo_psm), lty=3, col="grey70")
+m5 <- lm(lag ~ cafo_psm, NC_tb2023)
+plot(lag ~ cafo_psm, NC_tb2023); abline(m5, col="blue"); abline(v=mean(NC_tb2023$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_tb2023$cafo_psm), lty=3, col="grey70")
+
+### plotting residuals
+r_cafo23 <- tibble(
+  res = m5$residuals,
+  fitted = m5$fitted.values
+)
+
+ggplot(data = r_cafo23, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
-um_cafo <- moran(NC_tb2023$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
-um_cafo
+um_cafo23 <- moran(NC_tb2023$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo23
 
 ## statistical significance
-MC <- moran.mc(NC_tb2023$cafo_psm, weights, nsim=999)
-MC
-plot(MC)
-MC$p.value
+MC_cafo23 <- moran.mc(NC_tb2023$cafo_psm, weights, nsim=999)
+MC_cafo23
+plot(MC_cafo23)
+MC_cafo23$p.value
 
-### FOR TB
+## Moran's on residuals
+rm_cafo23 <- lm.morantest(m5, listw = weights, alternative = "greater")
+rm_cafo23
+
+### TB ----
 ## Moran's I scatterplot
 NC_tb2023$lag <- lag.listw(weights, NC_tb2023$p_ir)
-m2 <- lm(lag ~ p_ir, NC_tb2023)
-plot(lag ~ p_ir, NC_tb2023); abline(m2, col="blue"); abline(v=mean(NC_tb2023$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2023$p_ir), lty=3, col="grey70")
+m6 <- lm(lag ~ p_ir, NC_tb2023)
+plot(lag ~ p_ir, NC_tb2023); abline(m6, col="blue"); abline(v=mean(NC_tb2023$p_ir), lty=3, col="grey70"); abline(h=mean(NC_tb2023$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_tb23 <- tibble(
+  res = m6$residuals,
+  fitted = m6$fitted.values
+)
+
+ggplot(data = r_tb23, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
-um_p_ir <- moran(NC_tb2023$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
-um_p_ir
+um_tb23 <- moran(NC_tb2023$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_tb23
 
 ## statistical significance
-MC <- moran.mc(NC_tb2023$p_ir, weights, nsim=999)
-MC
-plot(MC)
-MC$p.value
+MC_tb23 <- moran.mc(NC_tb2023$p_ir, weights, nsim=999)
+MC_tb23
+plot(MC_tb23)
+MC_tb23$p.value
+
+## Moran's on residuals
+rm_tb23 <- lm.morantest(m6, listw = weights, alternative = "greater")
+rm_tb23
+
+## Lagrange tests for TB
+lm.LMtests(m6, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
 ```
 
 The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.
 
-**Bivariate Moran's I**
+There's also a pretty distinct clustering of residuals and lack of constant variance with CAFOs and TB.
+
+#### Bivariate Moran's I
 
 ```{r bi Moran's}
 ## 2017
@@ -218,7 +334,71 @@ MC$p.value
 
 Like with the individual Moran's I, 2020 has the lowest I.
 
-**Prepare panel data**
+#### Local Moran's I
+
+```{r local}
+## 2017 ----
+local_m2 <- localmoran(df_2017tb$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2017 <- order(df_2017tb$County)
+local_m2
+printCoefmat(data.frame(local_m2[county_2017,], row.names=df_2017tb$County[county_2017]), check.names=FALSE)
+
+localg_m2 <- localG(df_2017tb$p_ir, listw = weights)
+localg_m2
+NC_tb2017$GetisOrd <- localg_m2
+NC_tb2017 <- NC_tb2017 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_tb2017) +
+  geom_sf(aes(fill = Gi_cat))
+
+## 2020 ----
+local_m4 <- localmoran(df_2020tb$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2020 <- order(df_2020tb$County)
+local_m4
+printCoefmat(data.frame(local_m4[county_2020,], row.names=df_2020tb$County[county_2020]), check.names=FALSE)
+
+localg_m4 <- localG(df_2020tb$p_ir, listw = weights)
+localg_m4
+NC_tb2020$GetisOrd <- localg_m4
+NC_tb2020 <- NC_tb2020 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_tb2020) +
+  geom_sf(aes(fill = Gi_cat))
+
+## 2023 ----
+local_m6 <- localmoran(df_2023tb$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2023 <- order(df_2023tb$County)
+local_m6
+printCoefmat(data.frame(local_m6[county_2023,], row.names=df_2023tb$County[county_2023]), check.names=FALSE)
+
+localg_m6 <- localG(df_2023tb$p_ir, listw = weights)
+localg_m6
+NC_tb2023$GetisOrd <- localg_m6
+NC_tb2023 <- NC_tb2023 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_tb2023) +
+  geom_sf(aes(fill = Gi_cat))
+```
+
+#### Prepare panel data
 
 ```{r prepare panel data}
 df_tb <- df_tb %>%
@@ -228,132 +408,438 @@ df_tb <- df_tb %>%
 panel_tb <- pdata.frame(df_tb, index = c("County", "year"))
 ```
 
-Since we see spatial autocorrelation, we do a spatial regression
+#### Spatial regression
 
-```{r spatial regression}
-## OLS
-o1 <- lm(
-  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_tb
+We're doing a spatial Durbin model, which accounts for autocorrelated outcomes and residuals.
+
+```{r SEM}
+sm1 <- spml(
+  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  data = panel_tb,
+  listw = weights,
+  model = "within",      # fixed effect
+  effect = "twoway",     # both time and unit heterogeneity
+  lag = TRUE,
+  Durbin = TRUE
 )
-summary(o1)
-saveRDS(o1, "o1.RDS")
+summary(sm1)
+splm::impacts(sm1, listw = weights, time = 7, R = 500)
 
-## SAR
-m3 <- lagsarlm(
-  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_tb,
-  listw = weights
+sm2 <- spml(
+  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  data = panel_tb,
+  listw = weights,
+  model = "random",      # random effect
+  spatial.error = "b"    # spatial error model
 )
-summary(m3)
-saveRDS(m3, "m3.RDS")
-
-# get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
-m3_impacts <- impacts(m3, listw=weights, R=999)
-m3_impacts
-summary(m3_impacts, zstats=TRUE)
-
-## SER
-m4 <- errorsarlm(
-  TB ~ cafo_psm + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df, 
-  listw = weights
-)
-summary(m4) # CAN be directly compared to OLS coefficients
-saveRDS(m4, "m4.RDS")
-
-## compare
-AIC(m3); AIC(m4)
+summary(sm2)
 ```
 
-Some more information on how to interpret the results:
+We use Hausman tests to check whether the coefficients in the fixed vs random effect models differ significantly. If significant, use the FE model, because it captures group-level bias and omitted variables better, and assumes correlation between unobserved and observed characteristics
 
--   For the SAR model, the effect of a change in covariates spatially propagates through neighbors, neighbors of neighbors, etc. So, we can't interpret the raw $\beta$ values. So, we use the `impacts` function to decompose the direct and indirect impacts (marginal effects). **Direct impacts** are the average effect of changing a covariate within its own unit; **indirect impacts** are for the impact of the change on other units. The **total impacts** are direct + indirect. Example: if the direct impact of income on house prices is 0.5 and the indirect is 0.2, then a 1-unit increase in income in a neighborhood increases its own house price by 0.5 and increases that of nearby homes by 0.2. The total effect is 0.7.
--   For the SER model, the $\beta$ coefficients are interpreted just like in OLS.
+```{r Hausman}
+sphtest(sm1, sm2)
+```
 
-CAFO density is highly significant even after accounting for spatial autocorrelation, population density, % poverty, and hospital beds per person. Model 1 (SAR) is the better model.
+The Hausman test tells us that the fixed effects model is the right way to go. The significance we see in the random effects model is likely due to perceived between-county associations which are actually just spatially clustered variables.
 
-Now we compare to what that looks like with other respiratory illnesses.
+Nothing being significant is a little weird, though. It's possible that there is too little within-county, per-year variation in some of our variables (aka we have unexpectedly time-invariant predictors). Let's check that.
 
-### 2. Other respiratory illnesses
+#### Troubleshooting
 
-Defining neighbors and making spatial weights matrix
+Let's compare within-county and between-county variation. Trying coefficient of variation to look at within-county variation (aka variation over time).
+
+```{r eyeball}
+summary(panel_tb)
+
+## TB
+ts_tb <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(p_ir),
+            mean = mean(p_ir),
+            cv = within_sd/mean)
+ts_tb$cv <- ifelse(is.na(ts_tb$cv), 0, ts_tb$cv)
+hist(ts_tb$cv)
+
+## CAFO count
+ts_cc <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(count),
+            mean = mean(count),
+            cv = within_sd/mean)
+ts_cc$cv <- ifelse(is.na(ts_cc$cv), 0, ts_cc$cv)
+hist(ts_cc$cv)
+
+## CAFO density
+ts_cafo <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(cafo_psm),
+            mean = mean(cafo_psm),
+            cv = within_sd/mean)
+ts_cafo$cv <- ifelse(is.na(ts_cafo$cv), 0, ts_cafo$cv)
+hist(ts_cafo$cv)
+
+## population density
+ts_pd <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(pop_dens),
+            mean = mean(pop_dens),
+            cv = within_sd/mean)
+ts_pd$cv <- ifelse(is.na(ts_pd$cv), 0, ts_pd$cv)
+hist(ts_pd$cv)
+
+## percent poverty
+ts_pov <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(perc_pov),
+            mean = mean(perc_pov),
+            cv = within_sd/mean)
+ts_pov$cv <- ifelse(is.na(ts_pov$cv), 0, ts_pov$cv)
+hist(ts_pov$cv)
+
+## percent poverty
+ts_unins <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(perc_unins),
+            mean = mean(perc_unins),
+            cv = within_sd/mean)
+ts_unins$cv <- ifelse(is.na(ts_unins$cv), 0, ts_unins$cv)
+hist(ts_unins$cv)
+```
+
+It looks like there's low within-county variation/change over time for most of the variables, so there really isn't much variation for us to model.
+
+Let's try a different approach.
+
+#### GTWR
+
+Geographically weighted models (GWRs) differ from the other spatial regressions because it allows for nonstationarity, where regression coefficients can vary spatially. Aka, the relationship between the coefficients and TB may differ by county, and it produces unique coefficients for each county instead of one global set of coefficients.
+
+Let's see how this goes.
+
+#### Visualizing results
+
+Local Moran's I and LISA clusters
+
+
+
+
+
+### 2. ORDs
+
+#### Defining neighbors and making spatial weights matrix
 
 ```{r define neighbors}
 nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
-Univariate Moran's I
+**Univariate Moran's I**
 
-```{r uni Moran's}
-## Moran's I scatterplot
-NC_sf$lag <- lag.listw(weights, NC_sf$resp)
-m5 <- lm(lag ~ resp, NC_sf)
-plot(lag ~ resp, NC_sf)
-abline(m5, col="blue")
-abline(v=mean(NC_sf$resp), lty=3, col="grey70")
-abline(h=mean(NC_sf$resp), lty=3, col="grey70")
+We will do these for ORD (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals. Lastly, calculate local Moran's.
+
+```{r year 2017}
+### CAFOs ----
+NC_ord2017$lag <- lag.listw(weights, NC_ord2017$cafo_psm)
+m1 <- lm(lag ~ cafo_psm, NC_ord2017)
+plot(lag ~ cafo_psm, NC_ord2017); abline(m1, col="blue"); abline(v=mean(NC_ord2017$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_ord2017$cafo_psm), lty=3, col="grey70")
+
+### plotting residuals
+r_cafo17 <- tibble(
+  res = m1$residuals,
+  fitted = m1$fitted.values
+)
+
+ggplot(data = r_cafo17, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
 
 ## get the coefficient
-um_resp <- moran(NC_sf$resp, listw=weights, n=length(nb), S0=Szero(weights))
-um_resp
+um_cafo17 <- moran(NC_ord2017$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo17
 
 ## statistical significance
-MC <- moran.mc(NC_sf$resp, weights, nsim=999)
+MC_cafo17 <- moran.mc(NC_ord2017$cafo_psm, weights, nsim=999)
+MC_cafo17
+plot(MC_cafo17)
+MC_cafo17$p.value
+
+## Moran's on residuals
+rm_cafo17 <- lm.morantest(m1, listw = weights, alternative = "greater")
+rm_cafo17
+
+### ORD ----
+## Moran's I scatterplot
+NC_ord2017$lag <- lag.listw(weights, NC_ord2017$p_ir)
+m2 <- lm(lag ~ p_ir, NC_ord2017)
+plot(lag ~ p_ir, NC_ord2017); abline(m2, col="blue"); abline(v=mean(NC_ord2017$p_ir), lty=3, col="grey70"); abline(h=mean(NC_ord2017$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_ord17 <- tibble(
+  res = m2$residuals,
+  fitted = m2$fitted.values
+)
+
+ggplot(data = r_ord17, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## get the coefficient
+um_p_ir <- moran(NC_ord2017$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_p_ir
+
+## statistical significance
+MC <- moran.mc(NC_ord2017$p_ir, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
+
+## Moran's on residuals
+rm_ord17 <- lm.morantest(m2, listw = weights, alternative = "greater")
+rm_ord17
+
+## Lagrange tests for ORD
+lm.LMtests(m2, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m2, weights, test = c("RLMerr", "RLMlag"))
 ```
 
-Bivariate Moran's I
+```{r year 2020}
+### CAFOs ----
+NC_ord2020$lag <- lag.listw(weights, NC_ord2020$cafo_psm)
+m3 <- lm(lag ~ cafo_psm, NC_ord2020)
+plot(lag ~ cafo_psm, NC_ord2020); abline(m3, col="blue"); abline(v=mean(NC_ord2020$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_ord2020$cafo_psm), lty=3, col="grey70")
+
+### plotting residuals
+r_cafo20 <- tibble(
+  res = m3$residuals,
+  fitted = m3$fitted.values
+)
+
+ggplot(data = r_cafo20, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## get the coefficient
+um_cafo20 <- moran(NC_ord2020$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo20
+
+## statistical significance
+MC_cafo20 <- moran.mc(NC_ord2020$cafo_psm, weights, nsim=999)
+MC_cafo20
+plot(MC_cafo20)
+MC_cafo20$p.value
+
+## Moran's on residuals
+rm_cafo20 <- lm.morantest(m3, listw = weights, alternative = "greater")
+rm_cafo20
+
+### ORD ----
+## Moran's I scatterplot
+NC_ord2020$lag <- lag.listw(weights, NC_ord2020$p_ir)
+m4 <- lm(lag ~ p_ir, NC_ord2020)
+plot(lag ~ p_ir, NC_ord2020); abline(m4, col="blue"); abline(v=mean(NC_ord2020$p_ir), lty=3, col="grey70"); abline(h=mean(NC_ord2020$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_ord20 <- tibble(
+  res = m4$residuals,
+  fitted = m4$fitted.values
+)
+
+ggplot(data = r_ord20, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## get the coefficient
+um_ord20 <- moran(NC_ord2020$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_ord20
+
+## statistical significance
+MC_ord20 <- moran.mc(NC_ord2020$p_ir, weights, nsim=999)
+MC_ord20
+plot(MC_ord20)
+MC_ord20$p.value
+
+## Moran's on residuals
+rm_ord20 <- lm.morantest(m4, listw = weights, alternative = "greater")
+rm_ord20
+
+## Lagrange tests for ORD
+lm.LMtests(m4, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m4, weights, test = c("RLMerr", "RLMlag"))
+```
+
+```{r year 2023}
+### CAFOs ----
+NC_ord2023$lag <- lag.listw(weights, NC_ord2023$cafo_psm)
+m5 <- lm(lag ~ cafo_psm, NC_ord2023)
+plot(lag ~ cafo_psm, NC_ord2023); abline(m5, col="blue"); abline(v=mean(NC_ord2023$cafo_psm), lty=3, col="grey70"); abline(h=mean(NC_ord2023$cafo_psm), lty=3, col="grey70")
+
+### plotting residuals
+r_cafo23 <- tibble(
+  res = m5$residuals,
+  fitted = m5$fitted.values
+)
+
+ggplot(data = r_cafo23, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## get the coefficient
+um_cafo23 <- moran(NC_ord2023$cafo_psm, listw=weights, n=length(nb), S0=Szero(weights))
+um_cafo23
+
+## statistical significance
+MC_cafo23 <- moran.mc(NC_ord2023$cafo_psm, weights, nsim=999)
+MC_cafo23
+plot(MC_cafo23)
+MC_cafo23$p.value
+
+## Moran's on residuals
+rm_cafo23 <- lm.morantest(m5, listw = weights, alternative = "greater")
+rm_cafo23
+
+### ORD ----
+## Moran's I scatterplot
+NC_ord2023$lag <- lag.listw(weights, NC_ord2023$p_ir)
+m6 <- lm(lag ~ p_ir, NC_ord2023)
+plot(lag ~ p_ir, NC_ord2023); abline(m6, col="blue"); abline(v=mean(NC_ord2023$p_ir), lty=3, col="grey70"); abline(h=mean(NC_ord2023$p_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_ord23 <- tibble(
+  res = m6$residuals,
+  fitted = m6$fitted.values
+)
+
+ggplot(data = r_ord23, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## get the coefficient
+um_ord23 <- moran(NC_ord2023$p_ir, listw=weights, n=length(nb), S0=Szero(weights))
+um_ord23
+
+## statistical significance
+MC_ord23 <- moran.mc(NC_ord2023$p_ir, weights, nsim=999)
+MC_ord23
+plot(MC_ord23)
+MC_ord23$p.value
+
+## Moran's on residuals
+rm_ord23 <- lm.morantest(m6, listw = weights, alternative = "greater")
+rm_ord23
+
+## Lagrange tests for ORD
+lm.LMtests(m6, weights, test = c("LMerr", "LMlag"))
+lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
+```
+
+We see apparent clustering as well.
+
+#### Bivariate Moran's I
 
 ```{r bi Moran's}
+## 2017
 ## get the coefficient
-bm_resp <- moran.bi(NC_sf$resp, NC_sf$cafo_dens, weights)
-bm_resp
+bm_ORD2017 <- moran.bi(NC_ord2017$p_ir, NC_ord2017$cafo_psm, weights)
+bm_ORD2017
 
 ## statistical significance
-MC <- moranbi.mc(NC_sf$resp, NC_sf$cafo_dens, weights, nsim=999)
+MC <- moranbi.mc(NC_ord2017$p_ir, NC_ord2017$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+## 2020
+## get the coefficient
+bm_ORD2020 <- moran.bi(NC_ord2020$p_ir, NC_ord2020$cafo_psm, weights)
+bm_ORD2020
+
+## statistical significance
+MC <- moranbi.mc(NC_ord2020$p_ir, NC_ord2020$cafo_psm, weights, nsim=999)
+MC
+plot(MC)
+MC$p.value
+
+## 2023
+## get the coefficient
+bm_ORD2023 <- moran.bi(NC_ord2023$p_ir, NC_ord2023$cafo_psm, weights)
+bm_ORD2023
+
+## statistical significance
+MC <- moranbi.mc(NC_ord2023$p_ir, NC_ord2023$cafo_psm, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
 ```
 
-Since we see spatial autocorrelation, we do a spatial regression
+Very little if any bivariate autocorrelation.
 
-```{r spatial regression}
-## OLS
-o2 <- lm(
-  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df
-)
-summary(o2)
-saveRDS(o2, "o2.RDS")
+#### Local Moran's I
 
-## SAR
-m6 <- lagsarlm(
-  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = NC_sf,
-  listw = weights
-)
-summary(m6)
-saveRDS(m6, "m6.RDS")
+```{r local}
+## 2017 ----
+local_m2 <- localmoran(df_2017ord$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2017 <- order(df_2017ord$County)
+local_m2
+printCoefmat(data.frame(local_m2[county_2017,], row.names=df_2017ord$County[county_2017]), check.names=FALSE)
 
-# get estimates of direct, indirect, and total effect of each variable because cannot be compared directly to OLS coefficients
-m6_impacts <- impacts(m6, listw=weights, R=999)
-m6_impacts
-summary(m6_impacts, zstats=TRUE)
+localg_m2 <- localG(df_2017ord$p_ir, listw = weights)
+localg_m2
+NC_ord2017$GetisOrd <- localg_m2
+NC_ord2017 <- NC_ord2017 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_ord2017) +
+  geom_sf(aes(fill = Gi_cat))
 
-## SER
-m7 <- errorsarlm(
-  resp ~ cafo_dens + pop_dens + Percent.in.Poverty + beds_pc + f_perc,
-  data = df, 
-  listw = weights
-)
-summary(m7) # CAN be directly compared to OLS coefficients
-saveRDS(m7, "m7.RDS")
+## 2020 ----
+local_m4 <- localmoran(df_2020ord$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2020 <- order(df_2020ord$County)
+local_m4
+printCoefmat(data.frame(local_m4[county_2020,], row.names=df_2020ord$County[county_2020]), check.names=FALSE)
 
-## compare
-AIC(m6); AIC(m7)
+localg_m4 <- localG(df_2020ord$p_ir, listw = weights)
+localg_m4
+NC_ord2020$GetisOrd <- localg_m4
+NC_ord2020 <- NC_ord2020 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_ord2020) +
+  geom_sf(aes(fill = Gi_cat))
+
+## 2023 ----
+local_m6 <- localmoran(df_2023ord$p_ir, listw = weights, zero.policy = attr(weights, "zero.policy"), alternative = "two.sided")
+county_2023 <- order(df_2023ord$County)
+local_m6
+printCoefmat(data.frame(local_m6[county_2023,], row.names=df_2023ord$County[county_2023]), check.names=FALSE)
+
+localg_m6 <- localG(df_2023ord$p_ir, listw = weights)
+localg_m6
+NC_ord2023$GetisOrd <- localg_m6
+NC_ord2023 <- NC_ord2023 %>%
+  mutate(Gi_cat = case_when(
+    GetisOrd < -2.58 ~ "Very cold spot",
+    GetisOrd >= -2.58 & GetisOrd < -1.96 ~ "Cold spot",
+    GetisOrd >= -1.96 & GetisOrd < 1.96 ~ "Not significant",
+    GetisOrd >= 1.96 & GetisOrd < 2.58 ~ "Hot spot",
+    GetisOrd >= 2.58 ~ "Very hot spot"
+  ))
+ggplot(NC_ord2023) +
+  geom_sf(aes(fill = Gi_cat))
 ```

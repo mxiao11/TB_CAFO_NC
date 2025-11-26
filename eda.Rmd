@@ -99,6 +99,22 @@ cor.table
 ### 2. Map
 
 ```{r make maps}
+## TB
+q_tb2017 <- unname(quantile(df_2017tb$p_ir, probs = seq(0, 1, 0.1)))
+q_tb2017 <- c(-0.01, 0, 1, 1.96, 2.72, 3.72, 12.8)
+class_tb2017 <- cut(df_2017tb$p_ir, breaks = q_tb2017)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_tb2017)) +
+  scale_fill_brewer(palette="OrRd")
+
+## CAFO count
+q_cc2017 <- unname(quantile(df_2017tb$count, probs = seq(0, 1, 0.1)))
+q_cc2017 <- c(-0.0001, 0, 1, 2, 3.4, 7, 14, 49.3, 487)
+class_cc2017 <- cut(df_2017tb$cafo_ct, breaks = q_cc2017)
+ggplot(NC_sf) +
+  geom_sf(aes(fill=class_cc2017)) +
+  scale_fill_brewer(palette="OrRd")
+
 ## CAFO density
 q_cafo2017 <- unname(quantile(df_2017tb$cafo_psm, probs = seq(0, 1, 0.2)))
 q_cafo2017 <- q_cafo2017[-1]
@@ -164,28 +180,6 @@ class_pd2023 <- cut(df_2023tb$pop_dens, breaks = q_pd2023)
 ggplot(NC_sf) +
   geom_sf(aes(fill=class_pd2023)) +
   scale_fill_brewer(palette="OrRd")
-
-## foreign-born
-q_for2017 <- unname(quantile(df_2017tb$perc_foreign, probs = seq(0, 1, 0.25)))
-q_for2017 <- c(0, q_for2017)
-class_for2017 <- cut(df_2017tb$perc_foreign, breaks = q_for2017)
-ggplot(NC_sf) +
-  geom_sf(aes(fill=class_for2017)) +
-  scale_fill_brewer(palette="OrRd")
-
-q_for2020 <- unname(quantile(df_2020tb$perc_foreign, probs = seq(0, 1, 0.25)))
-q_for2020 <- c(0, q_for2020)
-class_for2020 <- cut(df_2020tb$perc_foreign, breaks = q_for2020)
-ggplot(NC_sf) +
-  geom_sf(aes(fill=class_for2020)) +
-  scale_fill_brewer(palette="OrRd")
-
-q_for2023 <- unname(quantile(df_2023tb$perc_foreign, probs = seq(0, 1, 0.25)))
-q_for2023 <- c(0, q_for2023)
-class_for2023 <- cut(df_2023tb$perc_foreign, breaks = q_for2023)
-ggplot(NC_sf) +
-  geom_sf(aes(fill=class_for2023)) +
-  scale_fill_brewer(palette="OrRd")
 ```
 
 
@@ -200,7 +194,7 @@ summary(m2)
 ```
 
 ```{r multi linreg}
-m4 <- lm(p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov + perc_foreign, data=df_tb)
+m4 <- lm(p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov, data=df_tb)
 summary(m4)
 vif(m4)
 
