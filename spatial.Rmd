@@ -430,7 +430,8 @@ sm2 <- spml(
   data = panel_tb,
   listw = weights,
   model = "random",      # random effect
-  spatial.error = "b"    # spatial error model
+  lag = TRUE,
+  Durbin = TRUE
 )
 summary(sm2)
 ```
@@ -516,6 +517,62 @@ Let's try a different approach.
 Geographically weighted models (GWRs) differ from the other spatial regressions because it allows for nonstationarity, where regression coefficients can vary spatially. Aka, the relationship between the coefficients and TB may differ by county, and it produces unique coefficients for each county instead of one global set of coefficients.
 
 Let's see how this goes.
+
+First, the data must be an sf object. We already have an sf version of the data; let's get it in a format they want. Specifically, we projected coordinates and county centroids.
+
+```{r data prep}
+gtwr_tb <- st_transform(NC_tb, crs = 3857)
+tb_coords <- st_coordinates(st_centroid(gtwr_tb))
+```
+
+Bandwidth selection, aka choosing the size of the "neighborhood" of each location in the regression. Looking for the lowest AIC.
+
+```{r bandwidth selection}
+bw_tb <- bw.gtwr(
+  formula = p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  data = gtwr_tb,
+  obs.tv = gtwr_tb$year,
+  approach = "AICc",
+  kernel = "bisquare",
+  adaptive = TRUE
+)
+```
+
+Fit model.
+
+```{r GTWR model fitting}
+gm_tb <- gtwr(
+  formula = p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  data = gtwr_tb,
+  obs.tv = gtwr_tb$year,
+  st.bw = bw_tb,
+  kernel = "bisquare",
+  adaptive = TRUE
+)
+```
+
+Results time.
+
+```{r GTWR results}
+gm_tb # will give you global results and summaries of each of the predictors
+
+local_coefs <- gm_tb$SDF
+local_coefs$County <- NC_tb$County
+summary(local_coefs$cafo_psm)
+```
+
+If you want to check the significance of the nonstationarity, compare the IQR of the parameter estimates with 2 times the SE of the OLS estimates (Fotheringham, Brunsdon, and Charlton 2002; Fotheringham, Crespo, and Yao 2015); larger IQRs indicate significant spatial nonstationarity, and that global/average descriptions of relationships between variables is insufficient.
+
+```{r GTWR significance}
+summary(gm_tb$lm)
+
+IQR(local_coefs$cafo_psm); 2*0.9793252     # IQR > 2*OLS SE
+IQR(local_coefs$pop_dens); 2*0.0002714     # IQR < 2*OLS SE
+IQR(local_coefs$perc_unins); 2*0.0364409   # IQR > 2*OLS SE
+IQR(local_coefs$perc_pov); 2*0.0190205     # IQR > 2*OLS SE
+```
+
+Looks like there's quite a bit of non-stationarity in the four predictors we have.
 
 #### Visualizing results
 
