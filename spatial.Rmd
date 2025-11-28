@@ -566,60 +566,69 @@ ggplot(NC_tbpool) +
   geom_sf(aes(fill = mean_ir))
 
 ## SEM - pooled
-pm1 <- errorsarlm(
+pm1 <- lagsarlm(
   mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins,
   data = NC_tbpool,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm1)
+impacts(pm1, listw = weights)
 
 ## SEM by years
-pm17 <- errorsarlm(
+pm17 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2017,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm17)
 
-pm18 <- errorsarlm(
+pm18 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2018,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm18)
 
-pm19 <- errorsarlm(
+pm19 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2019,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm19)
 
-pm20 <- errorsarlm(
+pm20 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2020,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm20)
 
-pm21 <- errorsarlm(
+pm21 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2021,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm21)
 
-pm22 <- errorsarlm(
+pm22 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2022,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm22)
 
-pm23 <- errorsarlm(
+pm23 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2023,
-  listw = weights
+  listw = weights,
+  Durbin = TRUE
 )
 summary(pm23)
 ```
