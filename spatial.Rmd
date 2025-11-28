@@ -21,7 +21,6 @@ library(bispdep)
 library(spatialreg)
 library(splm)
 library(plm)
-library(GWmodel)
 ```
 
 ```{r load data}
@@ -60,7 +59,7 @@ The steps we'll take for spatial analyses are:
 
 2.  Univariate global Moran's I - cross-sectionally by year
 
-3.  Bivariate Moran's I - cross-sectionally by year
+3.  Bivariate Moran's I and Lee's L - cross-sectionally by year
 
 4.  Local Moran's I - cross-sectionally by year
 
@@ -70,13 +69,10 @@ The steps we'll take for spatial analyses are:
 
 7.  Troubleshooting
 
-8.  GTWR
+8.  SEM - pooled
 
-9.  Visualizing results
+9.  Visualizing results - see `tables and figures.RMD` for final visualizations
 
-
-
-S
 ### 1. TB
 
 #### Defining neighbors and making spatial weights matrix
@@ -86,9 +82,9 @@ nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
-**Univariate Moran's I**
+#### Univariate Moran's I
 
-We will do these for TB (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals. Lastly, calculate local Moran's.
+We will do these for TB (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals of the lag OLSs, calculate Lagrange, and compute residuals for the full model for Moran's I on those residuals.
 
 ```{r year 2017}
 ### CAFOs ----
@@ -155,6 +151,11 @@ rm_tb17
 ## Lagrange tests for TB
 lm.LMtests(m2, weights, test = c("LMerr", "LMlag"))
 lm.LMtests(m2, weights, test = c("RLMerr", "RLMlag"))
+
+## full residual Moran's
+m2017 <- lm(p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins, data = NC_tb2017)
+summary(m2017)
+lm.morantest(m2017, listw = weights, alternative = "greater")
 ```
 
 ```{r year 2020}
@@ -295,7 +296,7 @@ The CAFOs across the three years exhibit higher I than TB, which is below 0.2 fo
 
 There's also a pretty distinct clustering of residuals and lack of constant variance with CAFOs and TB.
 
-#### Bivariate Moran's I
+#### Bivariate
 
 ```{r bi Moran's}
 ## 2017
@@ -333,6 +334,23 @@ MC$p.value
 ```
 
 Like with the individual Moran's I, 2020 has the lowest I.
+
+Let's also try Lee's L.
+
+```{r Lee's L}
+## 2017
+l_TB2017 <- lee.test(NC_tb2017$p_ir, NC_tb2017$cafo_psm, weights)
+l_TB2017
+
+## 2020
+l_TB2020 <- lee.test(NC_tb2020$p_ir, NC_tb2020$cafo_psm, weights)
+l_TB2020
+
+## 2023
+l_TB2023 <- lee.test(NC_tb2023$p_ir, NC_tb2023$cafo_psm, weights)
+l_TB2023
+```
+
 
 #### Local Moran's I
 
@@ -410,7 +428,7 @@ panel_tb <- pdata.frame(df_tb, index = c("County", "year"))
 
 #### Spatial regression
 
-We're doing a spatial Durbin model, which accounts for autocorrelated outcomes and residuals.
+We're doing a spatial error model, which accounts for autocorrelated residuals.
 
 ```{r SEM}
 sm1 <- spml(
@@ -419,19 +437,16 @@ sm1 <- spml(
   listw = weights,
   model = "within",      # fixed effect
   effect = "twoway",     # both time and unit heterogeneity
-  lag = TRUE,
-  Durbin = TRUE
+  spatial.error = "b"
 )
 summary(sm1)
-splm::impacts(sm1, listw = weights, time = 7, R = 500)
 
 sm2 <- spml(
   p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
   data = panel_tb,
   listw = weights,
   model = "random",      # random effect
-  lag = TRUE,
-  Durbin = TRUE
+  spatial.error = "b"
 )
 summary(sm2)
 ```
@@ -510,77 +525,108 @@ hist(ts_unins$cv)
 
 It looks like there's low within-county variation/change over time for most of the variables, so there really isn't much variation for us to model.
 
+Another approach:
+
+```{r variances again}
+checkv_tb <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    cafo_mean = mean(cafo_psm, na.rm = TRUE),  # county CAFO density means
+    cafo_wi_resid = cafo_psm - cafo_mean       # within-county residuals
+  )
+
+total_var <- var(checkv_tb$cafo_psm, na.rm = TRUE)
+btwn_var <- var(checkv_tb$cafo_mean, na.rm = TRUE)
+wi_var <- mean(tapply(checkv_tb$cafo_wi_resid, checkv_tb$County, var), na.rm = TRUE)
+btwn_var/total_var
+```
+
+Around 99% of the total variation is due to between-county variance, meaning that there isn't enough variation for fixed-effects estimation in spatial regressions and so we got imprecise coefficient estimates.
+
 Let's try a different approach.
 
-#### GTWR
+#### Pooled SEM
 
-Geographically weighted models (GWRs) differ from the other spatial regressions because it allows for nonstationarity, where regression coefficients can vary spatially. Aka, the relationship between the coefficients and TB may differ by county, and it produces unique coefficients for each county instead of one global set of coefficients.
+With so little variation within counties/by year, we can pool the values across years and just run a normal, non-temporal SEM on the average values of each variable. I'm also going to run an individual SEM for each year just to see how associations change over time.
 
-Let's see how this goes.
+```{r pooled SEM}
+## reorganize data
+NC_tbpool <- NC_tb %>%
+  group_by(County) %>%
+  summarize(
+    mean_ir = mean(p_ir),
+    mean_cafo = mean(cafo_psm),
+    mean_popdens = mean(pop_dens),
+    mean_pov = mean(perc_pov),
+    mean_unins = mean(perc_unins)
+  )
 
-First, the data must be an sf object. We already have an sf version of the data; let's get it in a format they want. Specifically, we projected coordinates and county centroids.
+## quick map
+ggplot(NC_tbpool) +
+  geom_sf(aes(fill = mean_ir))
 
-```{r data prep}
-gtwr_tb <- st_transform(NC_tb, crs = 3857)
-tb_coords <- st_coordinates(st_centroid(gtwr_tb))
-```
-
-Bandwidth selection, aka choosing the size of the "neighborhood" of each location in the regression. Looking for the lowest AIC.
-
-```{r bandwidth selection}
-bw_tb <- bw.gtwr(
-  formula = p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
-  data = gtwr_tb,
-  obs.tv = gtwr_tb$year,
-  approach = "AICc",
-  kernel = "bisquare",
-  adaptive = TRUE
+## SEM - pooled
+pm1 <- errorsarlm(
+  mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins,
+  data = NC_tbpool,
+  listw = weights
 )
-```
+summary(pm1)
 
-Fit model.
-
-```{r GTWR model fitting}
-gm_tb <- gtwr(
-  formula = p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
-  data = gtwr_tb,
-  obs.tv = gtwr_tb$year,
-  st.bw = bw_tb,
-  kernel = "bisquare",
-  adaptive = TRUE
+## SEM by years
+pm17 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2017,
+  listw = weights
 )
+summary(pm17)
+
+pm18 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2018,
+  listw = weights
+)
+summary(pm18)
+
+pm19 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2019,
+  listw = weights
+)
+summary(pm19)
+
+pm20 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2020,
+  listw = weights
+)
+summary(pm20)
+
+pm21 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2021,
+  listw = weights
+)
+summary(pm21)
+
+pm22 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2022,
+  listw = weights
+)
+summary(pm22)
+
+pm23 <- errorsarlm(
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  data = NC_tb2023,
+  listw = weights
+)
+summary(pm23)
 ```
-
-Results time.
-
-```{r GTWR results}
-gm_tb # will give you global results and summaries of each of the predictors
-
-local_coefs <- gm_tb$SDF
-local_coefs$County <- NC_tb$County
-summary(local_coefs$cafo_psm)
-```
-
-If you want to check the significance of the nonstationarity, compare the IQR of the parameter estimates with 2 times the SE of the OLS estimates (Fotheringham, Brunsdon, and Charlton 2002; Fotheringham, Crespo, and Yao 2015); larger IQRs indicate significant spatial nonstationarity, and that global/average descriptions of relationships between variables is insufficient.
-
-```{r GTWR significance}
-summary(gm_tb$lm)
-
-IQR(local_coefs$cafo_psm); 2*0.9793252     # IQR > 2*OLS SE
-IQR(local_coefs$pop_dens); 2*0.0002714     # IQR < 2*OLS SE
-IQR(local_coefs$perc_unins); 2*0.0364409   # IQR > 2*OLS SE
-IQR(local_coefs$perc_pov); 2*0.0190205     # IQR > 2*OLS SE
-```
-
-Looks like there's quite a bit of non-stationarity in the four predictors we have.
 
 #### Visualizing results
 
 Local Moran's I and LISA clusters
-
-
-
-
 
 ### 2. ORDs
 
@@ -591,7 +637,7 @@ nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
-**Univariate Moran's I**
+#### Univariate Moran's I
 
 We will do these for ORD (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals. Lastly, calculate local Moran's.
 
@@ -798,7 +844,7 @@ lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
 
 We see apparent clustering as well.
 
-#### Bivariate Moran's I
+#### Bivariate
 
 ```{r bi Moran's}
 ## 2017
@@ -900,3 +946,5 @@ NC_ord2023 <- NC_ord2023 %>%
 ggplot(NC_ord2023) +
   geom_sf(aes(fill = Gi_cat))
 ```
+
+Since we don't observe bivariate spatial clustering, we will not do spatial regressions here.
