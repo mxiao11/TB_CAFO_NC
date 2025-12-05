@@ -292,6 +292,22 @@ lm.LMtests(m6, weights, test = c("LMerr", "LMlag"))
 lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
 ```
 
+```{r pooled}
+## reorganize data
+NC_tbpool <- NC_tb %>%
+  group_by(County) %>%
+  summarize(
+    mean_ir = mean(p_ir),
+    mean_cafo = mean(cafo_psm),
+    mean_popdens = mean(pop_dens),
+    mean_pov = mean(perc_pov),
+    mean_unins = mean(perc_unins)
+  )
+
+MC_tbpool <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 999)
+MC_tbpool
+```
+
 The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.
 
 There's also a pretty distinct clustering of residuals and lack of constant variance with CAFOs and TB.
@@ -331,6 +347,15 @@ MC <- moranbi.mc(NC_tb2023$p_ir, NC_tb2023$cafo_psm, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
+
+## pooled
+## get the coefficient
+bm_TBpool <- moran.bi(NC_tbpool$mean_ir, NC_tbpool$mean_cafo, weights)
+bm_TBpool
+
+## statistical significance
+MC <- moranbi.mc(NC_tbpool$mean_ir, NC_tbpool$mean_cafo, listw = weights, nsim = 999)
+MC
 ```
 
 Like with the individual Moran's I, 2020 has the lowest I.
@@ -545,27 +570,18 @@ Around 99% of the total variation is due to between-county variance, meaning tha
 
 Let's try a different approach.
 
-#### Pooled SEM
+#### Pooled SDM
 
-With so little variation within counties/by year, we can pool the values across years and just run a normal, non-temporal SEM on the average values of each variable. I'm also going to run an individual SEM for each year just to see how associations change over time.
+With so little variation within counties/by year, we can pool the values across years and just run a normal, non-temporal SDM on the average values of each variable. Choosing SDM because it accounts for autocorrelation in the outcome and the predictors, as well as in the residuals. I'm also going to run an individual SDM for each year just to see how associations change over time.
+
+I briefly ran pooled SEM and SAR models as well and the SDM beat them out with AICs.
 
 ```{r pooled SEM}
-## reorganize data
-NC_tbpool <- NC_tb %>%
-  group_by(County) %>%
-  summarize(
-    mean_ir = mean(p_ir),
-    mean_cafo = mean(cafo_psm),
-    mean_popdens = mean(pop_dens),
-    mean_pov = mean(perc_pov),
-    mean_unins = mean(perc_unins)
-  )
-
 ## quick map
 ggplot(NC_tbpool) +
   geom_sf(aes(fill = mean_ir))
 
-## SEM - pooled
+## SDM - pooled
 pm1 <- lagsarlm(
   mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins,
   data = NC_tbpool,
@@ -573,9 +589,12 @@ pm1 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm1)
-impacts(pm1, listw = weights)
+i_pm1 <- impacts(pm1, listw = weights, R = 500)
+summary(i_pm1, zstats = TRUE)
+MC_pm1 <- moran.mc(pm1$residuals, weights, nsim=999)
+MC_pm1
 
-## SEM by years
+## SDM by years
 pm17 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
   data = NC_tb2017,
@@ -583,6 +602,10 @@ pm17 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm17)
+i_pm17 <- impacts(pm17, listw = weights, R = 500)
+summary(i_pm17, zstats = TRUE)
+MC_pm17 <- moran.mc(pm17$residuals, weights, nsim=999)
+MC_pm17
 
 pm18 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -591,6 +614,10 @@ pm18 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm18)
+i_pm18 <- impacts(pm18, listw = weights, R = 500)
+summary(i_pm18, zstats = TRUE)
+MC_pm18 <- moran.mc(pm18$residuals, weights, nsim=999)
+MC_pm18
 
 pm19 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -599,6 +626,10 @@ pm19 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm19)
+i_pm19 <- impacts(pm19, listw = weights, R = 500)
+summary(i_pm19, zstats = TRUE)
+MC_pm19 <- moran.mc(pm19$residuals, weights, nsim=999)
+MC_pm19
 
 pm20 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -607,6 +638,10 @@ pm20 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm20)
+i_pm20 <- impacts(pm20, listw = weights, R = 500)
+summary(i_pm20, zstats = TRUE)
+MC_pm20 <- moran.mc(pm20$residuals, weights, nsim=999)
+MC_pm20
 
 pm21 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -615,6 +650,10 @@ pm21 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm21)
+i_pm21 <- impacts(pm21, listw = weights, R = 500)
+summary(i_pm21, zstats = TRUE)
+MC_pm21 <- moran.mc(pm21$residuals, weights, nsim=999)
+MC_pm21
 
 pm22 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -623,6 +662,10 @@ pm22 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm22)
+i_pm22 <- impacts(pm22, listw = weights, R = 500)
+summary(i_pm22, zstats = TRUE)
+MC_pm22 <- moran.mc(pm22$residuals, weights, nsim=999)
+MC_pm22
 
 pm23 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
@@ -631,11 +674,13 @@ pm23 <- lagsarlm(
   Durbin = TRUE
 )
 summary(pm23)
+i_pm23 <- impacts(pm23, listw = weights, R = 500)
+summary(i_pm23, zstats = TRUE)
+MC_pm23 <- moran.mc(pm1$residuals, weights, nsim=999)
+MC_pm23
 ```
 
-#### Visualizing results
-
-Local Moran's I and LISA clusters
+The nonsignificant rho and LM tests tell us that the SDMs are explaining residual autocorrelation and capturing the spatial effects, and also telling us that spatial relationships likely explained a lot of the observed CAFO-TB relationships. Good to know.
 
 ### 2. ORDs
 
@@ -851,6 +896,21 @@ lm.LMtests(m6, weights, test = c("LMerr", "LMlag"))
 lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
 ```
 
+```{r pooled}
+NC_ordpool <- NC_ord %>%
+  group_by(County) %>%
+  summarize(
+    mean_ir = mean(p_ir),
+    mean_cafo = mean(cafo_psm),
+    mean_popdens = mean(pop_dens),
+    mean_pov = mean(perc_pov),
+    mean_unins = mean(perc_unins)
+  )
+
+MC_ordpool <- moran.mc(NC_ordpool$mean_ir, listw = weights, nsim = 999)
+MC_ordpool
+```
+
 We see apparent clustering as well.
 
 #### Bivariate
@@ -888,6 +948,15 @@ MC <- moranbi.mc(NC_ord2023$p_ir, NC_ord2023$cafo_psm, weights, nsim=999)
 MC
 plot(MC)
 MC$p.value
+
+## pooled
+## get the coefficient
+bm_ORDpool <- moran.bi(NC_ordpool$mean_ir, NC_ordpool$mean_cafo, weights)
+bm_ORDpool
+
+## statistical significance
+MC <- moranbi.mc(NC_ordpool$mean_ir, NC_ordpool$mean_cafo, listw = weights, nsim = 999)
+MC
 ```
 
 Very little if any bivariate autocorrelation.

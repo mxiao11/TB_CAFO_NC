@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load packages}
 library(tidyverse)
 library(ggplot2)
+library(ggpubr)
 library(sf)
 library(spdep)
 library(RColorBrewer)
@@ -91,26 +92,263 @@ ggplot(NC_sf) +
   )
 ```
 
-### 3. Spatial regression model results
-```{r spatial regression table}
-o1 <- readRDS("o1.RDS"); o2 <- readRDS("o2.RDS"); m3 <- readRDS("m3.RDS"); m4 <- readRDS("m4.RDS"); m6 <- readRDS("m6.RDS"); m7 <- readRDS("m7.RDS")
-
-```
 
 ### 4. Table 1
 
-Looking at overall characteristics in North Carolina.
+Looking at overall characteristics in North Carolina by year. Recall that in the overall df, we have duplicates for each county-year because of separate TB and ORD rows so I'm just using the df_yeartb dfs.
 
-```{r table 1}
-table()
+```{r population density}
+summary(df_2017tb$pop_dens)
+summary(df_2018tb$pop_dens)
+summary(df_2019tb$pop_dens)
+summary(df_2020tb$pop_dens)
+summary(df_2021tb$pop_dens)
+summary(df_2022tb$pop_dens)
+summary(df_2023tb$pop_dens)
+summary(df_tb$pop_dens)
+```
+
+```{r poverty}
+summary(df_2017tb$perc_pov)
+summary(df_2018tb$perc_pov)
+summary(df_2019tb$perc_pov)
+summary(df_2020tb$perc_pov)
+summary(df_2021tb$perc_pov)
+summary(df_2022tb$perc_pov)
+summary(df_2023tb$perc_pov)
+summary(df_tb$perc_pov)
+```
+
+```{r uninsured}
+summary(df_2017tb$perc_unins)
+summary(df_2018tb$perc_unins)
+summary(df_2019tb$perc_unins)
+summary(df_2020tb$perc_unins)
+summary(df_2021tb$perc_unins)
+summary(df_2022tb$perc_unins)
+summary(df_2023tb$perc_unins)
+summary(df_tb$perc_unins)
+```
+
+```{r CAFO density}
+summary(df_2017tb$cafo_psm)
+summary(df_2018tb$cafo_psm)
+summary(df_2019tb$cafo_psm)
+summary(df_2020tb$cafo_psm)
+summary(df_2021tb$cafo_psm)
+summary(df_2022tb$cafo_psm)
+summary(df_2023tb$cafo_psm)
+summary(df_tb$cafo_psm)
+```
+
+```{r TB}
+summary(df_2017tb$p_ir)
+summary(df_2018tb$p_ir)
+summary(df_2019tb$p_ir)
+summary(df_2020tb$p_ir)
+summary(df_2021tb$p_ir)
+summary(df_2022tb$p_ir)
+summary(df_2023tb$p_ir)
+summary(df_tb$p_ir)
+```
+
+```{r ORD}
+summary(df_2017ord$p_ir)
+summary(df_2018ord$p_ir)
+summary(df_2019ord$p_ir)
+summary(df_2020ord$p_ir)
+summary(df_2021ord$p_ir)
+summary(df_2022ord$p_ir)
+summary(df_2023ord$p_ir)
+summary(df_ord$p_ir)
 ```
 
 
-### 5. Table 2
+### 5. Choropleths
 
-Characteristics by TB level in North Carolina (no TB, low, middle, high)
+Faceted choropleths of pooled county characteristics and incidence rates, with univariate Moran's I and Lee's L values.
 
+```{r disease incidences}
+## TB
+quantile(NC_tbpool$mean_ir)
+NC_tbpool <- NC_tbpool %>%
+  mutate(ir_quant = case_when(
+    mean_ir == 0 ~ "0 - None",
+    mean_ir > 0 & mean_ir <= 0.39 ~ "1 - 0 to 0.39",
+    mean_ir > 0.39 & mean_ir <= 1.04 ~ "2 - 0.39 to 1.04",
+    mean_ir > 1.04 & mean_ir <= 1.97 ~ "3 - 1.04 to 1.97",
+    mean_ir > 1.97 ~ "4 - over 1.97"
+  ))
 
+tb_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = ir_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "TB incidence by county",
+    subtitle = "Cases per 100,000",
+    fill = "Quantile"
+  )
+tb_plot
+
+## ORDs
+quantile(NC_ordpool$mean_ir)
+NC_ordpool <- NC_ordpool %>%
+  mutate(ir_quant = case_when(
+    mean_ir == 0 ~ "0 - None",
+    mean_ir > 0 & mean_ir <= 6.05 ~ "1 - 0 to 6.05",
+    mean_ir > 6.05 & mean_ir <= 8.72 ~ "2 - 6.05 to 8.72",
+    mean_ir > 8.72 & mean_ir <= 11.01 ~ "3 - 8.72 to 11.01",
+    mean_ir > 11.01 ~ "4 - over 11.01"
+  ))
+
+ord_plot <- ggplot(NC_ordpool) +
+  geom_sf(aes(fill = ir_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "ORD incidence by county",
+    subtitle = "Cases per 100,000",
+    fill = "Quantile"
+  )
+ord_plot
+```
+
+```{r CAFO plot}
+quantile(NC_tbpool$mean_cafo)
+NC_tbpool <- NC_tbpool %>%
+  mutate(cafo_quant = case_when(
+    mean_cafo == 0 ~ "0 - None",
+    mean_cafo > 0 & mean_cafo <= 0.0018 ~ "1 - 0 to 0.0018",
+    mean_cafo > 0.0018 & mean_cafo <= 0.0083 ~ "2 - 0.0018 to 0.0083",
+    mean_cafo > 0.0083 & mean_cafo <= 0.023 ~ "3 - 0.0083 to 0.023",
+    mean_cafo > 0.023 ~ "4 - over 0.023"
+  ))
+
+cafo_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = cafo_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "CAFO density by county",
+    subtitle = "Facilities per square mile",
+    fill = "Quantile"
+  )
+cafo_plot
+```
+
+```{r other county characteristic plots}
+## poverty
+quantile(NC_tbpool$mean_pov)
+NC_tbpool <- NC_tbpool %>%
+  mutate(pov_quant = case_when(
+    mean_pov > 7.5 & mean_pov <= 13.23 ~ "1 - 7.5 to 13.23",
+    mean_pov > 13.23 & mean_pov <= 15.79 ~ "2 - 13.23 to 15.79",
+    mean_pov > 15.79 & mean_pov <= 20.01 ~ "3 - 15.79 to 20.01",
+    mean_pov > 20.01 ~ "4 - over 20.01"
+  ))
+
+pov_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = pov_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "Poverty rate by county",
+    subtitle = "Percent living under federal poverty line",
+    fill = "Quantile"
+  )
+pov_plot
+
+## population density
+quantile(NC_tbpool$mean_popdens)
+NC_tbpool <- NC_tbpool %>%
+  mutate(popdens_quant = case_when(
+    mean_popdens > 7.8 & mean_popdens <= 62.74 ~ "1 - 7.8 to 62.74",
+    mean_popdens > 62.74 & mean_popdens <= 112.35 ~ "2 - 62.74 to 112.35",
+    mean_popdens > 112.35 & mean_popdens <= 217.59 ~ "3 - 112.35 to 217.59",
+    mean_popdens > 217.59 ~ "4 - over 217.59"
+  ))
+
+popdens_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = popdens_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "Population density by county",
+    subtitle = "People per square mile",
+    fill = "Quantile"
+  )
+popdens_plot
+
+## uninsured
+quantile(NC_tbpool$mean_unins)
+NC_tbpool <- NC_tbpool %>%
+  mutate(unins_quant = case_when(
+    mean_unins > 6.57 & mean_unins <= 10.44 ~ "1 - 6.57 to 10.44",
+    mean_unins > 10.44 & mean_unins <= 11.47 ~ "2 - 10.44 to 11.47",
+    mean_unins > 11.47 & mean_unins <= 12.5 ~ "3 - 11.47 to 12.50",
+    mean_unins > 12.5 ~ "4 - over 12.5"
+  ))
+
+unins_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = unins_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "Uninsured rate by county",
+    subtitle = "Percent uninsured",
+    fill = "Quantile"
+  )
+unins_plot
+```
 
 
 
