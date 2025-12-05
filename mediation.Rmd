@@ -1,0 +1,161 @@
+---
+title: "Mediation"
+author: "Melody Xiao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Mediation analyses allow us to assess the impact of predictors on outcomes while accounting for mediators, which in this case may hold true. Specifically, we suspect that poverty may mediate the relationship between CAFOs and tuberculosis incidence, because CAFOs are disproportionately located near or in low-income communities. 
+
+Structural equation models (SEMs) don't typically include spatial autocorrelation, so I'm going to have to experiment a little with how to include that, because there's definitely spatial autocorrelation in CAFOs and TB (make sure to include the Moran's I on variables, Moran's I on residuals, and bivariate Moran's I in manuscript).
+
+This is exploratory!
+
+### 0. Setup
+
+```{r load packages}
+library(tidyverse)
+library(ggplot2)
+library(car)
+library(sf)
+library(spdep)
+library(bispdep)
+library(lavaan)
+library(nlme)
+library(piecewiseSEM)
+```
+
+```{r load data}
+NC_sf <- read_sf("C:/Users/mxiao/OneDrive - Duke University/Misc/CAFOs in NC/NC State County Boundary/NC_State_County_Boundary_NAD832011.shp") 
+
+df_tb <- readRDS("df_tb.RDS")
+df_ord <- readRDS("df_ord.RDS")
+```
+
+```{r reorganize data}
+## pool across years ----
+NC_tbpool <- NC_tb %>%
+  group_by(County) %>%
+  summarize(
+    mean_ir = mean(p_ir),
+    mean_cafo = mean(cafo_psm),
+    mean_popdens = mean(pop_dens),
+    mean_pov = mean(perc_pov),
+    mean_unins = mean(perc_unins)
+  ) %>%
+  ungroup()
+
+## extracting centroids for piecewiseSEM ----
+NC_tbpool$centroid <- st_centroid(NC_tbpool$geometry)
+coords <- st_coordinates(NC_tbpool$centroid)
+NC_tbpool$centroid_x <- coords[,1]
+NC_tbpool$centroid_y <- coords[,2]
+
+## standardize predictors for easier interpretation ----
+NC_tbpool$s_cafo <- scale(NC_tbpool$mean_cafo)[,1]
+NC_tbpool$s_popdens <- scale(NC_tbpool$mean_popdens)[,1]
+NC_tbpool$s_pov <- scale(NC_tbpool$mean_pov)[,1]
+NC_tbpool$s_unins <- scale(NC_tbpool$mean_unins)[,1]
+```
+
+
+### 1. Spatial
+
+The SEM needs to consider spatial autocorrelation because not doing so violates assumptions of independence. 
+
+First, build a weight matrix and define neighbors.
+
+```{r weight matrix}
+nb <- poly2nb(NC_sf, queen=TRUE)
+weights <- nb2listw(nb, style="W", zero.policy=TRUE)
+```
+
+Let's look at the Moran's I values to confirm that there's autocorrelation here.
+
+```{r Moran's univariate raw}
+moran_tb <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 999)
+moran_tb
+
+moran_cafo <- moran.mc(NC_tbpool$s_cafo, listw = weights, nsim = 999)
+moran_cafo
+
+moran_pov <- moran.mc(NC_tbpool$s_pov, listw = weights, nsim = 999)
+moran_pov
+```
+
+```{r univariate Moran's residuals}
+m_ols <- lm(mean_ir ~ s_cafo + s_pov + s_popdens + s_unins, data = NC_tbpool)
+
+mr_tb <- lm.morantest(m_ols, listw = weights, alternative = "greater")
+mr_tb
+```
+
+```{r bivariate Moran's}
+bm_cafo <- moran.bi(NC_tbpool$mean_ir, NC_tbpool$s_cafo, listw = weights)
+bm_cafo
+
+bm_pov <- moran.bi(NC_tbpool$mean_ir, NC_tbpool$s_pov, listw = weights)
+bm_pov
+```
+
+```{r Lee's L}
+l_cafo <- lee.test(NC_tbpool$mean_ir, NC_tbpool$s_cafo, listw = weights)
+l_cafo
+
+l_pov <- lee.test(NC_tbpool$mean_ir, NC_tbpool$s_pov, listw = weights)
+l_pov
+```
+
+Given significant Moran's I and Lee's L for all of the above, spatial modeling is necessary.
+
+
+## 2. SEM
+
+The SEM consists of two steps: building the structural equations, and then building the piecewise SEM comprised of the structural equations. We'll also look at alternative spatial structures; we'll start with an exponential correlation function because that's the most intuitive for this situation (decreases at a constant rate with distance).
+
+Let's build the structural equations and fit with generalized least squares (GLS).
+
+```{r structural equations}
+## mediator model ----
+seq_med <- gls(
+  s_pov ~ s_cafo + s_popdens + s_unins, 
+  data = NC_tbpool,
+  correlation = corExp(form = ~ centroid_x + centroid_y, nugget = TRUE),
+  method = "REML"
+)
+
+## outcome model ----
+seq_oc <- gls(
+  mean_ir ~ s_cafo + s_pov + s_popdens + s_unins,
+  data = NC_tbpool,
+  correlation = corExp(form = ~ centroid_x + centroid_y, nugget = TRUE),
+  method = "REML"
+)
+```
+
+Let's see how the other correlation structures do before we make the SEM.
+
+```{r testing correlation structures}
+alt_exp <- update(seq_oc, correlation = corExp(form = ~ centroid_x + centroid_y, nugget = TRUE))
+alt_sphere <- update(seq_oc, correlation = corSpher(form = ~ centroid_x + centroid_y, nugget = TRUE))
+alt_gaussian <- update(seq_oc, correlation = corGaus(form = ~ centroid_x + centroid_y, nugget = TRUE))
+alt_linear <- update(seq_oc, correlation = corLin(form = ~ centroid_x + centroid_y))
+
+AIC(alt_exp, alt_sphere, alt_gaussian, alt_linear)
+```
+
+As expected, the exponential model is the lowest AIC. Let's make the SEM (or PSEM? because piecewise SEM?)
+
+```{r psem}
+sem1 <- psem(seq_med, seq_oc)
+summary(sem1)
+plot(sem1)
+```
+
+
+
+
