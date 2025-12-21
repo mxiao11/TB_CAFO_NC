@@ -98,73 +98,90 @@ ggplot(NC_sf) +
 Looking at overall characteristics in North Carolina by year. Recall that in the overall df, we have duplicates for each county-year because of separate TB and ORD rows so I'm just using the df_yeartb dfs.
 
 ```{r population density}
-summary(df_2017tb$pop_dens)
-summary(df_2018tb$pop_dens)
-summary(df_2019tb$pop_dens)
-summary(df_2020tb$pop_dens)
-summary(df_2021tb$pop_dens)
-summary(df_2022tb$pop_dens)
-summary(df_2023tb$pop_dens)
-summary(df_tb$pop_dens)
+summary(df_2017tb$pop_dens); sd(df_2017tb$pop_dens)
+summary(df_2018tb$pop_dens); sd(df_2018tb$pop_dens)
+summary(df_2019tb$pop_dens); sd(df_2019tb$pop_dens)
+summary(df_2020tb$pop_dens); sd(df_2020tb$pop_dens)
+summary(df_2021tb$pop_dens); sd(df_2021tb$pop_dens)
+summary(df_2022tb$pop_dens); sd(df_2022tb$pop_dens)
+summary(df_2023tb$pop_dens); sd(df_2023tb$pop_dens)
+summary(df_tb$pop_dens); sd(df_tb$pop_dens)
 ```
 
 ```{r poverty}
-summary(df_2017tb$perc_pov)
-summary(df_2018tb$perc_pov)
-summary(df_2019tb$perc_pov)
-summary(df_2020tb$perc_pov)
-summary(df_2021tb$perc_pov)
-summary(df_2022tb$perc_pov)
-summary(df_2023tb$perc_pov)
-summary(df_tb$perc_pov)
+summary(df_2017tb$perc_pov); sd(df_2017tb$perc_pov)
+summary(df_2018tb$perc_pov); sd(df_2018tb$perc_pov)
+summary(df_2019tb$perc_pov); sd(df_2019tb$perc_pov)
+summary(df_2020tb$perc_pov); sd(df_2020tb$perc_pov)
+summary(df_2021tb$perc_pov); sd(df_2021tb$perc_pov)
+summary(df_2022tb$perc_pov); sd(df_2022tb$perc_pov)
+summary(df_2023tb$perc_pov); sd(df_2023tb$perc_pov)
+summary(df_tb$perc_pov); sd(df_tb$perc_pov)
 ```
 
 ```{r uninsured}
-summary(df_2017tb$perc_unins)
-summary(df_2018tb$perc_unins)
-summary(df_2019tb$perc_unins)
-summary(df_2020tb$perc_unins)
-summary(df_2021tb$perc_unins)
-summary(df_2022tb$perc_unins)
-summary(df_2023tb$perc_unins)
-summary(df_tb$perc_unins)
+summary(df_2017tb$perc_unins); sd(df_2017tb$perc_unins)
+summary(df_2018tb$perc_unins); sd(df_2018tb$perc_unins)
+summary(df_2019tb$perc_unins); sd(df_2019tb$perc_unins)
+summary(df_2020tb$perc_unins); sd(df_2020tb$perc_unins)
+summary(df_2021tb$perc_unins); sd(df_2021tb$perc_unins)
+summary(df_2022tb$perc_unins); sd(df_2022tb$perc_unins)
+summary(df_2023tb$perc_unins); sd(df_2023tb$perc_unins)
+summary(df_tb$perc_unins); sd(df_tb$perc_unins)
 ```
 
 ```{r CAFO density}
-summary(df_2017tb$cafo_psm)
-summary(df_2018tb$cafo_psm)
-summary(df_2019tb$cafo_psm)
-summary(df_2020tb$cafo_psm)
-summary(df_2021tb$cafo_psm)
-summary(df_2022tb$cafo_psm)
-summary(df_2023tb$cafo_psm)
-summary(df_tb$cafo_psm)
+summary(df_2017tb$cafo_psm); sd(df_2017tb$cafo_psm)
+summary(df_2018tb$cafo_psm); sd(df_2018tb$cafo_psm)
+summary(df_2019tb$cafo_psm); sd(df_2019tb$cafo_psm)
+summary(df_2020tb$cafo_psm); sd(df_2020tb$cafo_psm)
+summary(df_2021tb$cafo_psm); sd(df_2021tb$cafo_psm)
+summary(df_2022tb$cafo_psm); sd(df_2022tb$cafo_psm)
+summary(df_2023tb$cafo_psm); sd(df_2023tb$cafo_psm)
+summary(df_tb$cafo_psm); sd(df_tb$cafo_psm)
 ```
 
 ```{r TB}
-summary(df_2017tb$p_ir)
-summary(df_2018tb$p_ir)
-summary(df_2019tb$p_ir)
-summary(df_2020tb$p_ir)
-summary(df_2021tb$p_ir)
-summary(df_2022tb$p_ir)
-summary(df_2023tb$p_ir)
-summary(df_tb$p_ir)
+summary(df_2017tb$p_ir); sd(df_2017$p_ir)
+summary(df_2018tb$p_ir); sd(df_2018$p_ir)
+summary(df_2019tb$p_ir); sd(df_2019$p_ir)
+summary(df_2020tb$p_ir); sd(df_2020$p_ir)
+summary(df_2021tb$p_ir); sd(df_2021$p_ir)
+summary(df_2022tb$p_ir); sd(df_2022$p_ir)
+summary(df_2023tb$p_ir); sd(df_2023$p_ir)
+summary(df_tb$p_ir); sd(df_tb$p_ir)
 ```
 
 ```{r ORD}
-summary(df_2017ord$p_ir)
-summary(df_2018ord$p_ir)
-summary(df_2019ord$p_ir)
-summary(df_2020ord$p_ir)
-summary(df_2021ord$p_ir)
-summary(df_2022ord$p_ir)
-summary(df_2023ord$p_ir)
-summary(df_ord$p_ir)
+summary(df_2017ord$p_ir); sd(df_2017ord$p_ir)
+summary(df_2018ord$p_ir); sd(df_2018ord$p_ir)
+summary(df_2019ord$p_ir); sd(df_2019ord$p_ir)
+summary(df_2020ord$p_ir); sd(df_2020ord$p_ir)
+summary(df_2021ord$p_ir); sd(df_2021ord$p_ir)
+summary(df_2022ord$p_ir); sd(df_2022ord$p_ir)
+summary(df_2023ord$p_ir); sd(df_2023ord$p_ir)
+summary(df_ord$p_ir); sd(df_ord$p_ir)
 ```
 
 
-### 5. Choropleths
+### 5. 
+
+Table looking at how much of the total variance is explained by between-county variance.
+
+```{r between-county variance}
+total_var <- c(tb_total_var, ord_total_var, popdens_total_var, pov_total_var, unins_total_var, cafo_total_var)
+btwn_var <- c(tb_btwn_var, ord_btwn_var, popdens_btwn_var, pov_btwn_var, unins_btwn_var, cafo_btwn_var)
+
+var_df <- data.frame(btwn_var, total_var)
+var_df$btwn_var <- round(var_df$btwn_var, 12); var_df$total_var <- round(var_df$total_var, 12)
+var_df$variable <- c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density")
+var_df$perc <- var_df$btwn_var/var_df$total_var
+
+```
+
+
+
+### 6. Choropleths
 
 Faceted choropleths of pooled county characteristics and incidence rates, with univariate Moran's I and Lee's L values.
 

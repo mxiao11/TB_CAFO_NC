@@ -553,17 +553,82 @@ It looks like there's low within-county variation/change over time for most of t
 Another approach:
 
 ```{r variances again}
+## TB
 checkv_tb <- df_tb %>%
   group_by(County) %>%
   mutate(
-    cafo_mean = mean(cafo_psm, na.rm = TRUE),  # county CAFO density means
-    cafo_wi_resid = cafo_psm - cafo_mean       # within-county residuals
+    tb_mean = mean(p_ir, na.rm = TRUE),  # county TB incidence means
+    tb_wi_resid = p_ir - tb_mean         # within-county residuals
   )
 
-total_var <- var(checkv_tb$cafo_psm, na.rm = TRUE)
-btwn_var <- var(checkv_tb$cafo_mean, na.rm = TRUE)
-wi_var <- mean(tapply(checkv_tb$cafo_wi_resid, checkv_tb$County, var), na.rm = TRUE)
-btwn_var/total_var
+tb_total_var <- var(checkv_tb$p_ir, na.rm = TRUE)
+tb_btwn_var <- var(checkv_tb$tb_mean, na.rm = TRUE); tb_btwn_var/tb_total_var
+tb_wi_var <- mean(tapply(checkv_tb$tb_wi_resid, checkv_tb$County, var), na.rm = TRUE); tb_wi_var/tb_total_var
+
+## ORDs
+checkv_ord <- df_ord %>%
+  group_by(County) %>%
+  mutate(
+    ord_mean = mean(p_ir, na.rm = TRUE),  # county ORD density means
+    ord_wi_resid = p_ir - ord_mean        # within-county residuals
+  )
+
+ord_total_var <- var(checkv_ord$p_ir, na.rm = TRUE)
+ord_btwn_var <- var(checkv_ord$ord_mean, na.rm = TRUE)
+ord_wi_var <- mean(tapply(checkv_ord$ord_wi_resid, checkv_ord$County, var), na.rm = TRUE)
+ord_btwn_var/ord_total_var
+
+## population density
+checkv_popdens <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    popdens_mean = mean(pop_dens, na.rm = TRUE),     # county population density means
+    popdens_wi_resid = pop_dens - popdens_mean       # within-county residuals
+  )
+
+popdens_total_var <- var(checkv_popdens$pop_dens, na.rm = TRUE)
+popdens_btwn_var <- var(checkv_popdens$popdens_mean, na.rm = TRUE)
+popdens_wi_var <- mean(tapply(checkv_popdens$popdens_wi_resid, checkv_popdens$County, var), na.rm = TRUE)
+popdens_btwn_var/popdens_total_var
+
+## poverty
+checkv_pov <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    pov_mean = mean(perc_pov, na.rm = TRUE),     # county poverty means
+    pov_wi_resid = perc_pov - pov_mean           # within-county residuals
+  )
+
+pov_total_var <- var(checkv_pov$perc_pov, na.rm = TRUE)
+pov_btwn_var <- var(checkv_pov$pov_mean, na.rm = TRUE)
+pov_wi_var <- mean(tapply(checkv_pov$pov_wi_resid, checkv_pov$County, var), na.rm = TRUE)
+pov_btwn_var/pov_total_var
+
+## uninsured
+checkv_unins <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    unins_mean = mean(perc_unins, na.rm = TRUE),       # county uninsured means
+    unins_wi_resid = perc_unins - unins_mean           # within-county residuals
+  )
+
+unins_total_var <- var(checkv_unins$perc_unins, na.rm = TRUE)
+unins_btwn_var <- var(checkv_unins$unins_mean, na.rm = TRUE)
+unins_wi_var <- mean(tapply(checkv_unins$unins_wi_resid, checkv_unins$County, var), na.rm = TRUE)
+unins_btwn_var/unins_total_var
+
+## cafo
+checkv_cafo <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    cafo_mean = mean(cafo_psm, na.rm = TRUE),       # county CAFO means
+    cafo_wi_resid = cafo_psm - cafo_mean            # within-county residuals
+  )
+
+cafo_total_var <- var(checkv_cafo$cafo_psm, na.rm = TRUE)
+cafo_btwn_var <- var(checkv_cafo$cafo_mean, na.rm = TRUE)
+cafo_wi_var <- mean(tapply(checkv_cafo$cafo_wi_resid, checkv_cafo$County, var), na.rm = TRUE)
+cafo_btwn_var/cafo_total_var
 ```
 
 Around 99% of the total variation is due to between-county variance, meaning that there isn't enough variation for fixed-effects estimation in spatial regressions and so we got imprecise coefficient estimates.
