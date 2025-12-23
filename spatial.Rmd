@@ -306,6 +306,18 @@ NC_tbpool <- NC_tb %>%
 
 MC_tbpool <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 999)
 MC_tbpool
+
+MC_cafopool <- moran.mc(NC_tbpool$mean_cafo, listw = weights, nsim = 999)
+MC_cafopool
+
+MC_popdenspool <- moran.mc(NC_tbpool$mean_popdens, listw = weights, nsim = 999)
+MC_popdenspool
+
+MC_povpool <- moran.mc(NC_tbpool$mean_pov, listw = weights, nsim = 999)
+MC_povpool
+
+MC_uninspool <- moran.mc(NC_tbpool$mean_unins, listw = weights, nsim = 999)
+MC_uninspool
 ```
 
 The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.

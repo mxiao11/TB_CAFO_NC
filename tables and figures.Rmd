@@ -164,11 +164,12 @@ summary(df_ord$p_ir); sd(df_ord$p_ir)
 ```
 
 
-### 5. 
+### 5. Between-county variance
 
-Table looking at how much of the total variance is explained by between-county variance.
+Figure looking at how much of the total variance is explained by between-county variance.
 
 ```{r between-county variance}
+## making table
 total_var <- c(tb_total_var, ord_total_var, popdens_total_var, pov_total_var, unins_total_var, cafo_total_var)
 btwn_var <- c(tb_btwn_var, ord_btwn_var, popdens_btwn_var, pov_btwn_var, unins_btwn_var, cafo_btwn_var)
 
@@ -176,6 +177,21 @@ var_df <- data.frame(btwn_var, total_var)
 var_df$btwn_var <- round(var_df$btwn_var, 12); var_df$total_var <- round(var_df$total_var, 12)
 var_df$variable <- c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density")
 var_df$perc <- var_df$btwn_var/var_df$total_var
+
+var_df$variable <- factor(
+  var_df$variable,
+  levels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density"),
+  labels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density")
+)
+
+## making plot
+ggplot(data = var_df, aes(x = variable, y = perc)) +
+  geom_col() +
+  labs(
+    x = "variable",
+    y = "percent"
+  ) +
+  theme_classic()
 
 ```
 
@@ -210,9 +226,8 @@ tb_plot <- ggplot(NC_tbpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "TB incidence by county",
-    subtitle = "Cases per 100,000",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.36, p-val = 0.001"
   )
 tb_plot
 
@@ -240,9 +255,8 @@ ord_plot <- ggplot(NC_ordpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "ORD incidence by county",
-    subtitle = "Cases per 100,000",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.29, p-val = 0.001"
   )
 ord_plot
 ```
@@ -271,9 +285,8 @@ cafo_plot <- ggplot(NC_tbpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "CAFO density by county",
-    subtitle = "Facilities per square mile",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.46, p-val = 0.001"
   )
 cafo_plot
 ```
@@ -302,9 +315,8 @@ pov_plot <- ggplot(NC_tbpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "Poverty rate by county",
-    subtitle = "Percent living under federal poverty line",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.35, p-val = 0.001"
   )
 pov_plot
 
@@ -331,9 +343,8 @@ popdens_plot <- ggplot(NC_tbpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "Population density by county",
-    subtitle = "People per square mile",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.21, p-val = 0.003"
   )
 popdens_plot
 
@@ -360,14 +371,18 @@ unins_plot <- ggplot(NC_tbpool) +
     axis.title = element_blank()
   ) +
   labs(
-    title = "Uninsured rate by county",
-    subtitle = "Percent uninsured",
-    fill = "Quantile"
+    fill = "Quantile",
+    subtitle = "I = 0.30, p-val = 0.001"
   )
 unins_plot
 ```
 
+Now putting it together in one figure.
 
+```{r making one figure}
+chor_plots <- ggarrange(tb_plot, ord_plot, cafo_plot, popdens_plot, pov_plot, unins_plot, ncol = 3, nrow = 2, labels = "auto")
+chor_plots
+```
 
 
 
