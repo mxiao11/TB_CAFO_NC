@@ -197,9 +197,9 @@ ggplot(data = var_df, aes(x = variable, y = perc)) +
 
 
 
-### 6. Choropleths
+### 6. Choropleths of variables
 
-Faceted choropleths of pooled county characteristics and incidence rates, with univariate Moran's I and Lee's L values.
+Faceted choropleths of pooled county characteristics and incidence rates, with univariate Moran's I.
 
 ```{r disease incidences}
 ## TB
@@ -210,7 +210,7 @@ NC_tbpool <- NC_tbpool %>%
     mean_ir > 0 & mean_ir <= 0.39 ~ "1 - 0 to 0.39",
     mean_ir > 0.39 & mean_ir <= 1.04 ~ "2 - 0.39 to 1.04",
     mean_ir > 1.04 & mean_ir <= 1.97 ~ "3 - 1.04 to 1.97",
-    mean_ir > 1.97 ~ "4 - over 1.97"
+    mean_ir > 1.97 ~ "4 - 1.97 to 10.10"
   ))
 
 tb_plot <- ggplot(NC_tbpool) +
@@ -227,7 +227,7 @@ tb_plot <- ggplot(NC_tbpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.36, p-val = 0.001"
+    subtitle = "I = 0.36, p-val < 0.001"
   )
 tb_plot
 
@@ -239,7 +239,7 @@ NC_ordpool <- NC_ordpool %>%
     mean_ir > 0 & mean_ir <= 6.05 ~ "1 - 0 to 6.05",
     mean_ir > 6.05 & mean_ir <= 8.72 ~ "2 - 6.05 to 8.72",
     mean_ir > 8.72 & mean_ir <= 11.01 ~ "3 - 8.72 to 11.01",
-    mean_ir > 11.01 ~ "4 - over 11.01"
+    mean_ir > 11.01 ~ "4 - 11.01 to 26.95"
   ))
 
 ord_plot <- ggplot(NC_ordpool) +
@@ -256,7 +256,7 @@ ord_plot <- ggplot(NC_ordpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.29, p-val = 0.001"
+    subtitle = "I = 0.29, p-val < 0.001"
   )
 ord_plot
 ```
@@ -269,7 +269,7 @@ NC_tbpool <- NC_tbpool %>%
     mean_cafo > 0 & mean_cafo <= 0.0018 ~ "1 - 0 to 0.0018",
     mean_cafo > 0.0018 & mean_cafo <= 0.0083 ~ "2 - 0.0018 to 0.0083",
     mean_cafo > 0.0083 & mean_cafo <= 0.023 ~ "3 - 0.0083 to 0.023",
-    mean_cafo > 0.023 ~ "4 - over 0.023"
+    mean_cafo > 0.023 ~ "4 - 0.023 to 0.59"
   ))
 
 cafo_plot <- ggplot(NC_tbpool) +
@@ -286,7 +286,7 @@ cafo_plot <- ggplot(NC_tbpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.46, p-val = 0.001"
+    subtitle = "I = 0.46, p-val < 0.001"
   )
 cafo_plot
 ```
@@ -299,7 +299,7 @@ NC_tbpool <- NC_tbpool %>%
     mean_pov > 7.5 & mean_pov <= 13.23 ~ "1 - 7.5 to 13.23",
     mean_pov > 13.23 & mean_pov <= 15.79 ~ "2 - 13.23 to 15.79",
     mean_pov > 15.79 & mean_pov <= 20.01 ~ "3 - 15.79 to 20.01",
-    mean_pov > 20.01 ~ "4 - over 20.01"
+    mean_pov > 20.01 ~ "4 - 20.01 to 27.90"
   ))
 
 pov_plot <- ggplot(NC_tbpool) +
@@ -316,7 +316,7 @@ pov_plot <- ggplot(NC_tbpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.35, p-val = 0.001"
+    subtitle = "I = 0.35, p-val < 0.001"
   )
 pov_plot
 
@@ -327,7 +327,7 @@ NC_tbpool <- NC_tbpool %>%
     mean_popdens > 7.8 & mean_popdens <= 62.74 ~ "1 - 7.8 to 62.74",
     mean_popdens > 62.74 & mean_popdens <= 112.35 ~ "2 - 62.74 to 112.35",
     mean_popdens > 112.35 & mean_popdens <= 217.59 ~ "3 - 112.35 to 217.59",
-    mean_popdens > 217.59 ~ "4 - over 217.59"
+    mean_popdens > 217.59 ~ "4 - 217.59 to 2143.20"
   ))
 
 popdens_plot <- ggplot(NC_tbpool) +
@@ -344,7 +344,7 @@ popdens_plot <- ggplot(NC_tbpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.21, p-val = 0.003"
+    subtitle = "I = 0.21, p-val < 0.01"
   )
 popdens_plot
 
@@ -355,7 +355,7 @@ NC_tbpool <- NC_tbpool %>%
     mean_unins > 6.57 & mean_unins <= 10.44 ~ "1 - 6.57 to 10.44",
     mean_unins > 10.44 & mean_unins <= 11.47 ~ "2 - 10.44 to 11.47",
     mean_unins > 11.47 & mean_unins <= 12.5 ~ "3 - 11.47 to 12.50",
-    mean_unins > 12.5 ~ "4 - over 12.5"
+    mean_unins > 12.5 ~ "4 - 12.5 to 22.11"
   ))
 
 unins_plot <- ggplot(NC_tbpool) +
@@ -372,7 +372,7 @@ unins_plot <- ggplot(NC_tbpool) +
   ) +
   labs(
     fill = "Quantile",
-    subtitle = "I = 0.30, p-val = 0.001"
+    subtitle = "I = 0.30, p-val < 0.001"
   )
 unins_plot
 ```
@@ -383,6 +383,212 @@ Now putting it together in one figure.
 chor_plots <- ggarrange(tb_plot, ord_plot, cafo_plot, popdens_plot, pov_plot, unins_plot, ncol = 3, nrow = 2, labels = "auto")
 chor_plots
 ```
+
+
+### 7. Choropleth of residuals
+
+Faceted choropleths of pooled county characteristics and incidence rates, with univariate Moran's I.
+
+First, make the residuals dataframes. Then plot. Then combine. Same formula as above.
+
+```{r count info}
+county_info <- NC_tbpool %>%
+  select(County, geometry)
+```
+
+```{r disease incidences}
+## TB
+r_tbpool <- cbind(county_info, r_tbpool)
+quantile(r_tbpool$res)
+r_tbpool <- r_tbpool %>%
+  mutate(quant = case_when(
+    res <= -0.52 ~ "1 - -1.46 to -0.52",
+    res > -0.52 & res <= -0.075 ~ "2 - -0.52 to -0.075",
+    res > -0.075 & res <= 0.34 ~ "3 - -0.075 to 0.34",
+    res > 0.34 ~ "4 - 0.34 to 2.90"
+  ))
+
+rtb_plot <- ggplot(r_tbpool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.20, p-val < 0.001"
+  )
+rtb_plot
+
+## ORD
+r_ordpool <- cbind(county_info, r_ordpool)
+quantile(r_ordpool$res)
+r_ordpool <- r_ordpool %>%
+  mutate(quant = case_when(
+    res <= -1.90 ~ "1 - -6.41 to -1.90",
+    res > -1.90 & res <= -0.12 ~ "2 - -1.90 to -0.12",
+    res > -0.12 & res <= 1.30 ~ "3 - -0.12 to 1.30",
+    res > 1.30 ~ "4 - 1.30 to 8.11"
+  ))
+
+rord_plot <- ggplot(r_ordpool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.25, p-val < 0.001"
+  )
+rord_plot
+```
+
+```{r CAFO residuals}
+r_cafopool <- cbind(county_info, r_cafopool)
+quantile(r_cafopool$res)
+r_cafopool <- r_cafopool %>%
+  mutate(quant = case_when(
+    res <= -0.017 ~ "1 - -0.099 to -0.017",
+    res > -0.017 & res <= -0.012 ~ "2 - -0.017 to -0.012",
+    res > -0.012 & res <= -0.0031 ~ "3 - -0.012 to -0.0031",
+    res > -0.0031 ~ "4 - -0.0031 to 0.15"
+  ))
+
+rcafo_plot <- ggplot(r_cafopool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.18, p-val < 0.001"
+  )
+rcafo_plot
+```
+
+```{r other county characteristics}
+## population density
+r_popdenspool <- cbind(county_info, r_popdenspool)
+quantile(r_popdenspool$res)
+r_popdenspool <- r_popdenspool %>%
+  mutate(quant = case_when(
+    res <= -104.51 ~ "1 - -297.85 to -104.51",
+    res > -104.51 & res <= -38.26 ~ "2 - -104.51 to -38.26",
+    res > -38.26 & res <= 48.44 ~ "3 - -38.26 to 48.44",
+    res > 48.44 ~ "4 - 48.44 to 583.08"
+  ))
+
+rpopdens_plot <- ggplot(r_popdenspool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.25, p-val < 0.001"
+  )
+rpopdens_plot
+
+## poverty
+r_povpool <- cbind(county_info, r_povpool)
+quantile(r_povpool$res)
+r_povpool <- r_povpool %>%
+  mutate(quant = case_when(
+    res <= -1.61 ~ "1 - -4.26 to -1.61",
+    res > -1.61 & res <= -0.26 ~ "2 - -1.61 to -0.26",
+    res > -0.26 & res <= 1.50 ~ "3 - -0.26 to 1.50",
+    res > 1.50 ~ "4 - 1.50 to 5.35"
+  ))
+
+rpov_plot <- ggplot(r_povpool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.12, p-val < 0.05"
+  )
+rpov_plot
+
+## uninsured
+r_uninspool <- cbind(county_info, r_uninspool)
+quantile(r_uninspool$res)
+r_uninspool <- r_uninspool %>%
+  mutate(quant = case_when(
+    res <= -0.73 ~ "1 - -2.78 to -0.73",
+    res > -0.73 & res <= -0.28 ~ "2 - -0.73 to -0.28",
+    res > -0.28 & res <= 0.37 ~ "3 - -0.28 to 0.37",
+    res > 0.37 ~ "4 - 0.37 to 4.32"
+  ))
+
+runins_plot <- ggplot(r_uninspool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.24, p-val < 0.001"
+  )
+runins_plot
+```
+
+```{r making one figure}
+resid_plots <- ggarrange(rtb_plot, rord_plot, rcafo_plot, rpopdens_plot, rpov_plot, runins_plot, ncol = 3, nrow = 2, labels = "auto")
+resid_plots
+```
+
+
+### 8. Lee's L scatterplot
+
+Aka, a scatterplot of the spatially lagged x and y values.
+
+```{r scatterplot}
+
+```
+
 
 
 

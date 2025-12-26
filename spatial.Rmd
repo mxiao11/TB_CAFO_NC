@@ -82,7 +82,7 @@ nb <- poly2nb(NC_sf, queen=TRUE)
 weights <- nb2listw(nb, style="W", zero.policy=TRUE)
 ```
 
-#### Univariate Moran's I
+#### Univariate Moran's I on variables
 
 We will do these for TB (outcome) and CAFOs (key predictor). Start by getting the lags and residuals to plot and check for constant variance. Then get the global Moran's I and its p-value. Then get the Moran's I for the residuals of the lag OLSs, calculate Lagrange, and compute residuals for the full model for Moran's I on those residuals.
 
@@ -304,20 +304,123 @@ NC_tbpool <- NC_tb %>%
     mean_unins = mean(perc_unins)
   )
 
-MC_tbpool <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 999)
+MC_tbpool <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 9999)
 MC_tbpool
 
-MC_cafopool <- moran.mc(NC_tbpool$mean_cafo, listw = weights, nsim = 999)
+MC_cafopool <- moran.mc(NC_tbpool$mean_cafo, listw = weights, nsim = 9999)
 MC_cafopool
 
-MC_popdenspool <- moran.mc(NC_tbpool$mean_popdens, listw = weights, nsim = 999)
+MC_popdenspool <- moran.mc(NC_tbpool$mean_popdens, listw = weights, nsim = 9999)
 MC_popdenspool
 
-MC_povpool <- moran.mc(NC_tbpool$mean_pov, listw = weights, nsim = 999)
+MC_povpool <- moran.mc(NC_tbpool$mean_pov, listw = weights, nsim = 9999)
 MC_povpool
 
-MC_uninspool <- moran.mc(NC_tbpool$mean_unins, listw = weights, nsim = 999)
+MC_uninspool <- moran.mc(NC_tbpool$mean_unins, listw = weights, nsim = 9999)
 MC_uninspool
+```
+
+```{r pooled residuals}
+## Moran's I on residuals
+### TB ----
+NC_tbpool$tblag <- lag.listw(weights, NC_tbpool$mean_ir)
+mpool_tb <- lm(tblag ~ mean_ir, NC_tbpool)
+plot(tblag ~ mean_ir, NC_tbpool); abline(mpool_tb, col="blue"); abline(v=mean(NC_tbpool$mean_ir), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_tbpool <- tibble(
+  res = mpool_tb$residuals,
+  fitted = mpool_tb$fitted.values
+)
+
+ggplot(data = r_tbpool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_tbpool <- lm.morantest(mpool_tb, listw = weights, alternative = "greater")
+rm_tbpool
+
+### CAFO ----
+NC_tbpool$cafolag <- lag.listw(weights, NC_tbpool$mean_cafo)
+mpool_cafo <- lm(cafolag ~ mean_cafo, NC_tbpool)
+plot(cafolag ~ mean_cafo, NC_tbpool); abline(mpool_cafo, col="blue"); abline(v=mean(NC_tbpool$mean_cafo), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_cafo), lty=3, col="grey70")
+
+### plotting residuals
+r_cafopool <- tibble(
+  res = mpool_cafo$residuals,
+  fitted = mpool_cafo$fitted.values
+)
+
+ggplot(data = r_cafopool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_cafopool <- lm.morantest(mpool_cafo, listw = weights, alternative = "greater")
+rm_cafopool
+
+### population density ----
+NC_tbpool$popdenslag <- lag.listw(weights, NC_tbpool$mean_popdens)
+mpool_popdens <- lm(popdenslag ~ mean_popdens, NC_tbpool)
+plot(popdenslag ~ mean_popdens, NC_tbpool); abline(mpool_popdens, col="blue"); abline(v=mean(NC_tbpool$mean_popdens), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_popdens), lty=3, col="grey70")
+
+### plotting residuals
+r_popdenspool <- tibble(
+  res = mpool_popdens$residuals,
+  fitted = mpool_popdens$fitted.values
+)
+
+ggplot(data = r_popdenspool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_popdenspool <- lm.morantest(mpool_popdens, listw = weights, alternative = "greater")
+rm_popdenspool
+
+### poverty ----
+NC_tbpool$povlag <- lag.listw(weights, NC_tbpool$mean_pov)
+mpool_pov <- lm(povlag ~ mean_pov, NC_tbpool)
+plot(povlag ~ mean_pov, NC_tbpool); abline(mpool_pov, col="blue"); abline(v=mean(NC_tbpool$mean_pov), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_pov), lty=3, col="grey70")
+
+### plotting residuals
+r_povpool <- tibble(
+  res = mpool_pov$residuals,
+  fitted = mpool_pov$fitted.values
+)
+
+ggplot(data = r_povpool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_povpool <- lm.morantest(mpool_pov, listw = weights, alternative = "greater")
+rm_povpool
+
+### uninsured ----
+NC_tbpool$uninslag <- lag.listw(weights, NC_tbpool$mean_unins)
+mpool_unins <- lm(uninslag ~ mean_unins, NC_tbpool)
+plot(uninslag ~ mean_unins, NC_tbpool); abline(mpool_unins, col="blue"); abline(v=mean(NC_tbpool$mean_unins), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_unins), lty=3, col="grey70")
+
+### plotting residuals
+r_uninspool <- tibble(
+  res = mpool_unins$residuals,
+  fitted = mpool_unins$fitted.values
+)
+
+ggplot(data = r_uninspool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_uninspool <- lm.morantest(mpool_unins, listw = weights, alternative = "greater")
+rm_uninspool
 ```
 
 The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.
@@ -386,6 +489,10 @@ l_TB2020
 ## 2023
 l_TB2023 <- lee.test(NC_tb2023$p_ir, NC_tb2023$cafo_psm, weights)
 l_TB2023
+
+## pooled
+l_TBpool <- lee.test(NC_tbpool$mean_ir, NC_tbpool$mean_cafo, weights)
+l_TBpool
 ```
 
 
@@ -973,7 +1080,7 @@ lm.LMtests(m6, weights, test = c("LMerr", "LMlag"))
 lm.LMtests(m6, weights, test = c("RLMerr", "RLMlag"))
 ```
 
-```{r pooled}
+```{r pooled variables}
 NC_ordpool <- NC_ord %>%
   group_by(County) %>%
   summarize(
@@ -984,8 +1091,29 @@ NC_ordpool <- NC_ord %>%
     mean_unins = mean(perc_unins)
   )
 
-MC_ordpool <- moran.mc(NC_ordpool$mean_ir, listw = weights, nsim = 999)
+MC_ordpool <- moran.mc(NC_ordpool$mean_ir, listw = weights, nsim = 9999)
 MC_ordpool
+```
+
+```{r pooled residuals}
+NC_ordpool$ordlag <- lag.listw(weights, NC_ordpool$mean_ir)
+mpool_ord <- lm(ordlag ~ mean_ir, NC_ordpool)
+plot(ordlag ~ mean_ir, NC_ordpool); abline(mpool_ord, col="blue"); abline(v=mean(NC_ordpool$mean_ir), lty=3, col="grey70"); abline(h=mean(NC_ordpool$mean_ir), lty=3, col="grey70")
+
+### plotting residuals
+r_ordpool <- tibble(
+  res = mpool_ord$residuals,
+  fitted = mpool_ord$fitted.values
+)
+
+ggplot(data = r_ordpool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_ordpool <- lm.morantest(mpool_ord, listw = weights, alternative = "greater")
+rm_ordpool
 ```
 
 We see apparent clustering as well.
@@ -1034,6 +1162,12 @@ bm_ORDpool
 ## statistical significance
 MC <- moranbi.mc(NC_ordpool$mean_ir, NC_ordpool$mean_cafo, listw = weights, nsim = 999)
 MC
+```
+
+```{r Lee's L}
+## pooled
+l_ORDpool <- lee.test(NC_ordpool$mean_ir, NC_ordpool$mean_cafo, weights)
+l_ORDpool
 ```
 
 Very little if any bivariate autocorrelation.

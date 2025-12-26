@@ -52,3 +52,4 @@ df.RDS
 *.csv
 *.RDS
 m4.RD
+.RDataTmp1
