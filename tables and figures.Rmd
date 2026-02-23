@@ -130,6 +130,17 @@ summary(df_2023tb$perc_unins); sd(df_2023tb$perc_unins)
 summary(df_tb$perc_unins); sd(df_tb$perc_unins)
 ```
 
+```{r foreign born}
+summary(df_2017tb$perc_foreign); sd(df_2017tb$perc_foreign)
+summary(df_2018tb$perc_foreign); sd(df_2018tb$perc_foreign)
+summary(df_2019tb$perc_foreign); sd(df_2019tb$perc_foreign)
+summary(df_2020tb$perc_foreign); sd(df_2020tb$perc_foreign)
+summary(df_2021tb$perc_foreign); sd(df_2021tb$perc_foreign)
+summary(df_2022tb$perc_foreign); sd(df_2022tb$perc_foreign)
+summary(df_2023tb$perc_foreign); sd(df_2023tb$perc_foreign)
+summary(df_tb$perc_foreign); sd(df_tb$perc_foreign)
+```
+
 ```{r CAFO density}
 summary(df_2017tb$cafo_psm); sd(df_2017tb$cafo_psm)
 summary(df_2018tb$cafo_psm); sd(df_2018tb$cafo_psm)
@@ -170,18 +181,18 @@ Figure looking at how much of the total variance is explained by between-county 
 
 ```{r between-county variance}
 ## making table
-total_var <- c(tb_total_var, ord_total_var, popdens_total_var, pov_total_var, unins_total_var, cafo_total_var)
-btwn_var <- c(tb_btwn_var, ord_btwn_var, popdens_btwn_var, pov_btwn_var, unins_btwn_var, cafo_btwn_var)
+total_var <- c(tb_total_var, ord_total_var, popdens_total_var, pov_total_var, unins_total_var, foreign_total_var, cafo_total_var)
+btwn_var <- c(tb_btwn_var, ord_btwn_var, popdens_btwn_var, pov_btwn_var, unins_btwn_var, foreign_btwn_var, cafo_btwn_var)
 
 var_df <- data.frame(btwn_var, total_var)
 var_df$btwn_var <- round(var_df$btwn_var, 12); var_df$total_var <- round(var_df$total_var, 12)
-var_df$variable <- c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density")
+var_df$variable <- c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "foreign born", "CAFO density")
 var_df$perc <- var_df$btwn_var/var_df$total_var
 
 var_df$variable <- factor(
   var_df$variable,
-  levels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density"),
-  labels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "CAFO density")
+  levels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "foreign born", "CAFO density"),
+  labels = c("TB incidence", "ORD incidence", "population density", "poverty rate", "uninsured rate", "foreign born", "CAFO density")
 )
 
 ## making plot
@@ -375,12 +386,40 @@ unins_plot <- ggplot(NC_tbpool) +
     subtitle = "I = 0.30, p-val < 0.001"
   )
 unins_plot
+
+## foreign born
+quantile(NC_tbpool$mean_fb)
+NC_tbpool <- NC_tbpool %>%
+  mutate(foreign_quant = case_when(
+    mean_fb > 0.011 & mean_fb <= 0.029 ~ "1 - 0.011 to 0.029",
+    mean_fb > 0.029 & mean_fb <= 0.041 ~ "2 - 0.029 to 0.041",
+    mean_fb > 0.041 & mean_fb <= 0.059 ~ "3 - 0.041 to 0.059",
+    mean_fb > 0.059 ~ "4 - 0.059 to 0.16"
+  ))
+
+foreign_plot <- ggplot(NC_tbpool) +
+  geom_sf(aes(fill = foreign_quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.33, p-val < 0.001"
+  )
+foreign_plot
 ```
 
 Now putting it together in one figure.
 
 ```{r making one figure}
-chor_plots <- ggarrange(tb_plot, ord_plot, cafo_plot, popdens_plot, pov_plot, unins_plot, ncol = 3, nrow = 2, labels = "auto")
+chor_plots <- ggarrange(tb_plot, ord_plot, cafo_plot, popdens_plot, pov_plot, unins_plot, foreign_plot, ncol = 3, nrow = 3, labels = "auto")
 chor_plots
 ```
 
@@ -573,10 +612,39 @@ runins_plot <- ggplot(r_uninspool) +
     subtitle = "I = 0.24, p-val < 0.001"
   )
 runins_plot
+
+## foreign born
+r_fbpool <- cbind(county_info, r_fbpool)
+quantile(r_fbpool$res)
+r_fbpool <- r_fbpool %>%
+  mutate(quant = case_when(
+    res <= -0.01 ~ "1 - -0.031 to -0.010",
+    res > -0.01 & res <= -0.0029 ~ "2 - -0.01 to -0.0029",
+    res > -0.0029 & res <= 0.0093 ~ "3 - -0.0029 to 0.0093",
+    res > 0.0093 ~ "4 - 0.0093 to 0.042"
+  ))
+
+rforeign_plot <- ggplot(r_fbpool) +
+  geom_sf(aes(fill = quant)) +
+  scale_fill_brewer(palette = "YlGnBu") +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    plot.background = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    fill = "Quantile",
+    subtitle = "I = 0.29, p-val < 0.001"
+  )
+rforeign_plot
 ```
 
 ```{r making one figure}
-resid_plots <- ggarrange(rtb_plot, rord_plot, rcafo_plot, rpopdens_plot, rpov_plot, runins_plot, ncol = 3, nrow = 2, labels = "auto")
+resid_plots <- ggarrange(rtb_plot, rord_plot, rcafo_plot, rpopdens_plot, rpov_plot, runins_plot, rforeign_plot, ncol = 3, nrow = 3, labels = "auto")
 resid_plots
 ```
 

@@ -301,7 +301,8 @@ NC_tbpool <- NC_tb %>%
     mean_cafo = mean(cafo_psm),
     mean_popdens = mean(pop_dens),
     mean_pov = mean(perc_pov),
-    mean_unins = mean(perc_unins)
+    mean_unins = mean(perc_unins),
+    mean_fb = mean(perc_foreign)
   )
 
 MC_tbpool <- moran.mc(NC_tbpool$mean_ir, listw = weights, nsim = 9999)
@@ -318,6 +319,9 @@ MC_povpool
 
 MC_uninspool <- moran.mc(NC_tbpool$mean_unins, listw = weights, nsim = 9999)
 MC_uninspool
+
+MC_fbpool <- moran.mc(NC_tbpool$mean_fb, listw = weights, nsim = 9999)
+MC_fbpool
 ```
 
 ```{r pooled residuals}
@@ -421,6 +425,26 @@ ggplot(data = r_uninspool, aes(x = fitted, y = res)) +
 ## Moran's on residuals
 rm_uninspool <- lm.morantest(mpool_unins, listw = weights, alternative = "greater")
 rm_uninspool
+
+### foreign born ----
+NC_tbpool$fblag <- lag.listw(weights, NC_tbpool$mean_fb)
+mpool_fb <- lm(fblag ~ mean_fb, NC_tbpool)
+plot(fblag ~ mean_fb, NC_tbpool); abline(mpool_fb, col="blue"); abline(v=mean(NC_tbpool$mean_fb), lty=3, col="grey70"); abline(h=mean(NC_tbpool$mean_fb), lty=3, col="grey70")
+
+### plotting residuals
+r_fbpool <- tibble(
+  res = mpool_fb$residuals,
+  fitted = mpool_fb$fitted.values
+)
+
+ggplot(data = r_fbpool, aes(x = fitted, y = res)) + 
+  geom_point() + 
+  labs(x = "Fitted values", y = "Residuals") +
+  geom_hline(yintercept = 0, color = "red")
+
+## Moran's on residuals
+rm_fbpool <- lm.morantest(mpool_fb, listw = weights, alternative = "greater")
+rm_fbpool
 ```
 
 The CAFOs across the three years exhibit higher I than TB, which is below 0.2 for all three years but varies across them. 2020 has the lowest clustering of TB.
@@ -576,7 +600,7 @@ We're doing a spatial error model, which accounts for autocorrelated residuals.
 
 ```{r SEM}
 sm1 <- spml(
-  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov + perc_foreign,
   data = panel_tb,
   listw = weights,
   model = "within",      # fixed effect
@@ -586,7 +610,7 @@ sm1 <- spml(
 summary(sm1)
 
 sm2 <- spml(
-  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov,
+  p_ir ~ cafo_psm + pop_dens + perc_unins + perc_pov + perc_foreign,
   data = panel_tb,
   listw = weights,
   model = "random",      # random effect
@@ -665,6 +689,15 @@ ts_unins <- df_tb %>%
             cv = within_sd/mean)
 ts_unins$cv <- ifelse(is.na(ts_unins$cv), 0, ts_unins$cv)
 hist(ts_unins$cv)
+
+## percent foreign born
+ts_foreign <- df_tb %>% 
+  group_by(County) %>%
+  summarize(within_sd = sd(perc_foreign),
+            mean = mean(perc_foreign),
+            cv = within_sd/mean)
+ts_foreign$cv <- ifelse(is.na(ts_foreign$cv), 0, ts_foreign$cv)
+hist(ts_foreign$cv)
 ```
 
 It looks like there's low within-county variation/change over time for most of the variables, so there really isn't much variation for us to model.
@@ -748,6 +781,19 @@ cafo_total_var <- var(checkv_cafo$cafo_psm, na.rm = TRUE)
 cafo_btwn_var <- var(checkv_cafo$cafo_mean, na.rm = TRUE)
 cafo_wi_var <- mean(tapply(checkv_cafo$cafo_wi_resid, checkv_cafo$County, var), na.rm = TRUE)
 cafo_btwn_var/cafo_total_var
+
+## uninsured
+checkv_foreign <- df_tb %>%
+  group_by(County) %>%
+  mutate(
+    foreign_mean = mean(perc_foreign, na.rm = TRUE),       # county foreign means
+    foreign_wi_resid = perc_foreign - foreign_mean           # within-county residuals
+  )
+
+foreign_total_var <- var(checkv_foreign$perc_foreign, na.rm = TRUE)
+foreign_btwn_var <- var(checkv_foreign$foreign_mean, na.rm = TRUE)
+foreign_wi_var <- mean(tapply(checkv_foreign$foreign_wi_resid, checkv_foreign$County, var), na.rm = TRUE)
+foreign_btwn_var/foreign_total_var
 ```
 
 Around 99% of the total variation is due to between-county variance, meaning that there isn't enough variation for fixed-effects estimation in spatial regressions and so we got imprecise coefficient estimates.
@@ -767,7 +813,7 @@ ggplot(NC_tbpool) +
 
 ## SDM - pooled
 pm1 <- lagsarlm(
-  mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins,
+  mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins + mean_fb,
   data = NC_tbpool,
   listw = weights,
   Durbin = TRUE
@@ -780,7 +826,7 @@ MC_pm1
 
 ## SDM by years
 pm17 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2017,
   listw = weights,
   Durbin = TRUE
@@ -792,7 +838,7 @@ MC_pm17 <- moran.mc(pm17$residuals, weights, nsim=999)
 MC_pm17
 
 pm18 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2018,
   listw = weights,
   Durbin = TRUE
@@ -804,7 +850,7 @@ MC_pm18 <- moran.mc(pm18$residuals, weights, nsim=999)
 MC_pm18
 
 pm19 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2019,
   listw = weights,
   Durbin = TRUE
@@ -816,7 +862,7 @@ MC_pm19 <- moran.mc(pm19$residuals, weights, nsim=999)
 MC_pm19
 
 pm20 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2020,
   listw = weights,
   Durbin = TRUE
@@ -828,7 +874,7 @@ MC_pm20 <- moran.mc(pm20$residuals, weights, nsim=999)
 MC_pm20
 
 pm21 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2021,
   listw = weights,
   Durbin = TRUE
@@ -840,7 +886,7 @@ MC_pm21 <- moran.mc(pm21$residuals, weights, nsim=999)
 MC_pm21
 
 pm22 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2022,
   listw = weights,
   Durbin = TRUE
@@ -852,7 +898,7 @@ MC_pm22 <- moran.mc(pm22$residuals, weights, nsim=999)
 MC_pm22
 
 pm23 <- lagsarlm(
-  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins,
+  p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
   data = NC_tb2023,
   listw = weights,
   Durbin = TRUE
