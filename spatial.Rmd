@@ -824,6 +824,15 @@ summary(i_pm1, zstats = TRUE)
 MC_pm1 <- moran.mc(pm1$residuals, weights, nsim=999)
 MC_pm1
 
+# checking VIF of an interaction model really quick
+vif_pm1 <- lm(
+  mean_ir ~ mean_cafo + mean_popdens + mean_pov + mean_unins + mean_fb +
+    mean_pov*mean_fb,
+  data = NC_tbpool
+)
+summary(vif_pm1)
+vif(vif_pm1) # DO NOT USE INTERACTION TERM
+
 ## SDM by years
 pm17 <- lagsarlm(
   p_ir ~ cafo_psm + pop_dens + perc_pov + perc_unins + perc_foreign,
