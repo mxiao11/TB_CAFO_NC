@@ -200,7 +200,7 @@ ggplot(data = var_df, aes(x = variable, y = perc)) +
   geom_col() +
   labs(
     x = "variable",
-    y = "percent"
+    y = "proportion"
   ) +
   theme_classic()
 
